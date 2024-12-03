@@ -52,20 +52,6 @@ func RoleRequired(roles ...string) gin.HandlerFunc {
 
 var jwtSecretKey = []byte("your-secret-key") // Secret key for signing JWT tokens
 
-// Account struct for user login request
-type Account struct {
-	Email    string `json:"email" binding:"required"`
-	Password string `json:"password" binding:"required"`
-}
-
-// Struct to represent the user data (including role)
-type User struct {
-	ID       int    `json:"id"`
-	Email    string `json:"email"`
-	Role     string `json:"role"`
-	Password     string `json:"password"`
-}
-
 // Function to generate JWT token
 func generateJWT(id int, email, role string) (string, error) {
 	claims := jwt.MapClaims{
