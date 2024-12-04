@@ -7,6 +7,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"log"
 	"net/http"
+	"waterfalls/api"
 )
 
 func main() {
@@ -34,9 +35,12 @@ func main() {
 		})
 	})
 
-	RegisterRoutes(r, db)
-	RegisterAgentRoutes(r, db)
-	Auth(r, db)
+	go api.HandleMessages(db)
+
+	api.AuthRoutes(r, db)
+	api.RegisterRoutes(r, db)
+	api.RegisterAgentRoutes(r, db)
+	api.ChatRoutes(r, db)
 	
 	r.Run(":9090")
 }

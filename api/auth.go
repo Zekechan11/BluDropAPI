@@ -1,13 +1,14 @@
-package main
+package api
 
 import (
 	"database/sql"
 	"net/http"
+	"waterfalls/util"
 
 	"github.com/gin-gonic/gin"
 )
 
-func Auth(r *gin.Engine, db *sql.DB) {
+func AuthRoutes(r *gin.Engine, db *sql.DB) {
 	// Route to test MySQL query
 	r.GET("/users", func(c *gin.Context) {
 		rows, err := db.Query("SELECT id, firstname FROM accounts")
@@ -89,7 +90,7 @@ func Auth(r *gin.Engine, db *sql.DB) {
 		}
 
 		// Generate JWT token
-		token, err := generateJWT(user.ID, user.Email, user.Role)
+		token, err :=  util.GenerateJWT(user.ID, user.Email, user.Role)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return

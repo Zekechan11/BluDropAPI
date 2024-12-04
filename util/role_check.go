@@ -1,4 +1,4 @@
-package main
+package util
 
 import (
 	"net/http"
@@ -6,6 +6,20 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 )
+
+var jwtSecretKey = []byte("your-secret-key")
+
+// Function to generate JWT token
+func GenerateJWT(id int, email, role string) (string, error) {
+	claims := jwt.MapClaims{
+		"id":       id,
+		"email":    email,
+		"role":     role,
+		"exp":      time.Now().Add(time.Hour * 24).Unix(), // Token expiration time (1 day)
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(jwtSecretKey)
+}
 
 // Middleware to protect routes by role
 func RoleRequired(roles ...string) gin.HandlerFunc {
@@ -47,19 +61,4 @@ func RoleRequired(roles ...string) gin.HandlerFunc {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient role"})
 		c.Abort()
 	}
-}
-
-
-var jwtSecretKey = []byte("your-secret-key") // Secret key for signing JWT tokens
-
-// Function to generate JWT token
-func generateJWT(id int, email, role string) (string, error) {
-	claims := jwt.MapClaims{
-		"id":       id,
-		"email":    email,
-		"role":     role,
-		"exp":      time.Now().Add(time.Hour * 24).Unix(), // Token expiration time (1 day)
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecretKey)
 }
