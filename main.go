@@ -1,9 +1,9 @@
 package main
 
 import (
-	"database/sql"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/go-sql-driver/mysql"
 	"log"
 	"net/http"
@@ -12,7 +12,7 @@ import (
 
 func main() {
 	dsn := "root@tcp(localhost:3306)/waterfalls"
-	db, err := sql.Open("mysql", dsn)
+	db, err := sqlx.Open("mysql", dsn)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
@@ -41,6 +41,6 @@ func main() {
 	api.RegisterRoutes(r, db)
 	api.RegisterAgentRoutes(r, db)
 	api.ChatRoutes(r, db)
-	
+
 	r.Run(":9090")
 }

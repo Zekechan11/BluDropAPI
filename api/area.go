@@ -1,30 +1,25 @@
 package api
 
 import (
-	"database/sql"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
 )
 
-// Area struct to represent the area entity
 type Area struct {
 	ID   int    `json:"id"`
-	Area string `json:"area"` // Assuming 'area' is the name of the area
+	Area string `json:"area"`
 }
 
-// AreaHandler holds the database connection
 type AreaHandler struct {
-	DB *sql.DB
+	DB *sqlx.DB
 }
 
-// NewAreaHandler creates a new AreaHandler
-func NewAreaHandler(db *sql.DB) *AreaHandler {
+func NewAreaHandler(db *sqlx.DB) *AreaHandler {
 	return &AreaHandler{DB: db}
 }
 
-// CreateArea handles the creation of a new area
 func (h *AreaHandler) CreateArea(c *gin.Context) {
 	var area Area
 	if err := c.ShouldBindJSON(&area); err != nil {
@@ -32,39 +27,33 @@ func (h *AreaHandler) CreateArea(c *gin.Context) {
 		return
 	}
 
-	result, err := h.DB.Exec("INSERT INTO areas (area) VALUES (?)", area.Area)
+	query := `INSERT INTO areas (area) VALUES (:area)`
+	result, err := h.DB.NamedExec(query, area)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	id, _ := result.LastInsertId()
+	id, err := result.LastInsertId()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	area.ID = int(id)
 	c.JSON(http.StatusCreated, area)
 }
 
-// GetAllAreas retrieves all areas from the database
 func (h *AreaHandler) GetAllAreas(c *gin.Context) {
-	rows, err := h.DB.Query("SELECT id, area FROM areas")
+	var areas []Area
+	err := h.DB.Select(&areas, "SELECT id, area FROM areas")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	defer rows.Close()
-
-	var areas []Area
-	for rows.Next() {
-		var area Area
-		if err := rows.Scan(&area.ID, &area.Area); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		areas = append(areas, area)
-	}
 	c.JSON(http.StatusOK, areas)
 }
 
-// UpdateArea handles the update of an existing area
 func (h *AreaHandler) UpdateArea(c *gin.Context) {
 	id := c.Param("id")
 	var area Area
@@ -73,7 +62,11 @@ func (h *AreaHandler) UpdateArea(c *gin.Context) {
 		return
 	}
 
-	_, err := h.DB.Exec("UPDATE areas SET area = ? WHERE id = ?", area.Area, id)
+	query := `UPDATE areas SET area = :area WHERE id = :id`
+	_, err := h.DB.NamedExec(query, map[string]interface{}{
+		"id":   id,
+		"area": area.Area,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -82,11 +75,11 @@ func (h *AreaHandler) UpdateArea(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Area updated successfully"})
 }
 
-// DeleteArea handles the deletion of an area
 func (h *AreaHandler) DeleteArea(c *gin.Context) {
 	id := c.Param("id")
 
-	_, err := h.DB.Exec("DELETE FROM areas WHERE id = ?", id)
+	query := `DELETE FROM areas WHERE id = :id`
+	_, err := h.DB.NamedExec(query, map[string]interface{}{"id": id})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -95,8 +88,7 @@ func (h *AreaHandler) DeleteArea(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Area deleted successfully"})
 }
 
-// RegisterRoutes registers the Area routes with the given router
-func RegisterRoutes(r *gin.Engine, db *sql.DB) {
+func RegisterRoutes(r *gin.Engine, db *sqlx.DB) {
 	areaHandler := NewAreaHandler(db)
 
 	r.POST("/area", areaHandler.CreateArea)

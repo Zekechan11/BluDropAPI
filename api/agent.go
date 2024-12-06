@@ -1,11 +1,9 @@
 package api
 
 import (
-	"database/sql"
 	"net/http"
-
 	"github.com/gin-gonic/gin"
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
 )
 
 // Updated Agent struct to include area details
@@ -16,13 +14,20 @@ type Agent struct {
 	AreaName  string `json:"area_name"` // New field to hold the area name
 }
 
+type InsertAgent struct {
+    ID        int    `db:"id"`
+    AgentName string `db:"agent_name"`  // This must match the column name in your query
+    Area      string `db:"area"`        // This must match the column name in your query
+}
+
+
 // AgentHandler holds the database connection
 type AgentHandler struct {
-	DB *sql.DB
+	DB *sqlx.DB
 }
 
 // NewAgentHandler creates a new AgentHandler
-func NewAgentHandler(db *sql.DB) *AgentHandler {
+func NewAgentHandler(db *sqlx.DB) *AgentHandler {
 	return &AgentHandler{DB: db}
 }
 
@@ -34,42 +39,43 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 		return
 	}
 
-	result, err := h.DB.Exec("INSERT INTO agents (area_id, agent_name) VALUES (?, ?)", agent.AreaID, agent.AgentName)
+	// Insert agent into the database
+	query := `INSERT INTO agents (area_id, agent_name) VALUES (:area_id, :agent_name)`
+	result, err := h.DB.NamedExec(query, agent)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	id, _ := result.LastInsertId()
+	// Retrieve the last inserted ID and set it in the agent struct
+	id, err := result.LastInsertId()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	agent.ID = int(id)
 	c.JSON(http.StatusCreated, agent)
 }
 
-// GetAllAgents retrieves all agents along with their area details from the database
 func (h *AgentHandler) GetAllAgents(c *gin.Context) {
 	query := `
-		SELECT a.id, a.area_id, a.agent_name, ar.area 
+		SELECT a.id, a.agent_name, ar.area 
 		FROM agents a 
 		LEFT JOIN areas ar ON a.area_id = ar.id
 	`
-	rows, err := h.DB.Query(query)
+
+	var agents []InsertAgent
+	err := h.DB.Select(&agents, query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	defer rows.Close()
 
-	var agents []Agent
-	for rows.Next() {
-		var agent Agent
-		if err := rows.Scan(&agent.ID, &agent.AreaID, &agent.AgentName, &agent.AreaName); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		agents = append(agents, agent)
-	}
+	// Send the list of agents as the response
 	c.JSON(http.StatusOK, agents)
 }
+
 
 // UpdateAgent handles the update of an existing agent
 func (h *AgentHandler) UpdateAgent(c *gin.Context) {
@@ -80,7 +86,13 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 		return
 	}
 
-	_, err := h.DB.Exec("UPDATE agents SET area_id = ?, agent_name = ? WHERE id = ?", agent.AreaID, agent.AgentName, id)
+	// Update the agent in the database
+	query := `UPDATE agents SET area_id = :area_id, agent_name = :agent_name WHERE id = :id`
+	_, err := h.DB.NamedExec(query, map[string]interface{}{
+		"id":         id,
+		"area_id":    agent.AreaID,
+		"agent_name": agent.AgentName,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -93,7 +105,9 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 	id := c.Param("id")
 
-	_, err := h.DB.Exec("DELETE FROM agents WHERE id = ?", id)
+	// Delete the agent from the database
+	query := `DELETE FROM agents WHERE id = :id`
+	_, err := h.DB.NamedExec(query, map[string]interface{}{"id": id})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -103,7 +117,7 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 }
 
 // RegisterAgentRoutes registers the Agent routes with the given router
-func RegisterAgentRoutes(r *gin.Engine, db *sql.DB) {
+func RegisterAgentRoutes(r *gin.Engine, db *sqlx.DB) {
 	agentHandler := NewAgentHandler(db)
 
 	r.POST("/agent", agentHandler.CreateAgent)
