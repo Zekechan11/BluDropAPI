@@ -13,8 +13,9 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 		var users []struct {
 			ID   int    `db:"id"`
 			Name string `db:"firstname"`
+			Area string `db:"area"`
 		}
-		err := db.Select(&users, "SELECT id, firstname FROM accounts")
+		err := db.Select(&users, "SELECT id, firstname, area FROM accounts")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -31,6 +32,7 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 			Area      string `json:"area" binding:"required"`
 			Password  string `json:"password" binding:"required"`
 			Username  string `json:"username" binding:"required"`
+			Role      string `json:"role" binding:"required,oneof=customer staff"`
 		}
 
 		if err := c.ShouldBindJSON(&account); err != nil {
@@ -38,8 +40,8 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		query := `INSERT INTO accounts (firstname, lastname, email, area, password, qrcode) 
-				  VALUES (:firstname, :lastname, :email, :area, :password, :username)`
+		query := `INSERT INTO accounts (firstname, lastname, email, area, password, qrcode, role) 
+				  VALUES (:firstname, :lastname, :email, :area, :password, :username, :role)`
 		result, err := db.NamedExec(query, account)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -59,6 +61,8 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 				"firstname": account.Firstname,
 				"lastname":  account.Lastname,
 				"email":     account.Email,
+				"username":  account.Username,
+				"role":      account.Role,
 			},
 		})
 	})
@@ -76,12 +80,15 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 
 		var user struct {
 			ID       int    `db:"id"`
+			FirstName string `db:"firstName"`
+        	LastName  string `db:"lastName"`
+        	Area      string `db:"area"`
 			Email    string `db:"email"`
 			Role     string `db:"role"`
 			Password string `db:"password"`
 		}
 
-		err := db.Get(&user, "SELECT id, email, password, role FROM accounts WHERE email = ?", account.Email)
+		err := db.Get(&user, "SELECT id, firstName, lastName, area, email, password, role FROM accounts WHERE email = ?", account.Email)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 			return
@@ -102,6 +109,10 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 			"message": "Login successful",
 			"token":   token,
 			"role":    user.Role,
+			"firstName": user.FirstName,
+        	"lastName":  user.LastName,
+        	"area":      user.Area,
+			"email":     user.Email,
 		})
 	})
 }
