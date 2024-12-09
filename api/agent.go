@@ -8,16 +8,16 @@ import (
 
 // Updated Agent struct to include area details
 type Agent struct {
-	ID        int    `json:"id"`
-	AreaID    int    `json:"area_id" binding:"required"` // area_id is required
-	AgentName string `json:"agent_name" binding:"required"` // agent_name is required
-	AreaName  string `json:"area_name"` // New field to hold the area name
+	ID        int    `json:"id" db:"id"`
+	AreaID    int    `json:"area_id" db:"area_id"` // Add db tag
+	AgentName string `json:"agent_name" db:"agent_name"` // Add db tag
+	AreaName  string `json:"area_name"` // Optional, for joins
 }
 
 type InsertAgent struct {
     ID        int    `db:"id"`
-    AgentName string `db:"agent_name"`  // This must match the column name in your query
-    Area      string `db:"area"`        // This must match the column name in your query
+    AgentName string `json:"agent_name" db:"agent_name"`  // This must match the column name in your query
+    AreaName  string `json:"area_name" db:"area_name"`        // This must match the column name in your query
 }
 
 
@@ -60,9 +60,9 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 
 func (h *AgentHandler) GetAllAgents(c *gin.Context) {
 	query := `
-		SELECT a.id, a.agent_name, ar.area 
-		FROM agents a 
-		LEFT JOIN areas ar ON a.area_id = ar.id
+		SELECT a.id, a.agent_name, COALESCE(ar.area, '') AS area_name
+FROM agents a 
+LEFT JOIN areas ar ON a.area_id = ar.id
 	`
 
 	var agents []InsertAgent
