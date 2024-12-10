@@ -9,7 +9,7 @@ import (
 
 type InventoryItem struct {
 	ID     int     `db:"inventory_id"`
-	Name   string  `db:"item"`
+	Items   string  `db:"item"`
 	NoOfItems  int `db:"no_of_items"`
 }
 
@@ -38,10 +38,9 @@ func InventoryRoutes(r *gin.Engine, db *sqlx.DB) {
 		}
 	
 		insertQuery := `
-			INSERT INTO Inventory (Item, noOfItems) 
-			VALUES (:Item, :NoOfItems)
-			RETURNING inventoryId, Item, noOfItems
-		`
+    INSERT INTO Inventory (item, no_of_items) 
+    VALUES (:Item, :NoOfItems)
+    RETURNING inventory_id AS inventoryId, item AS Item, no_of_items AS NoOfItems`
 	
 		var insertedInventory struct {
 			InventoryID int    `db:"inventoryId"`
