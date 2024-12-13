@@ -43,6 +43,7 @@ func main() {
 	api.ChatRoutes(r, db)
 	api.InventoryRoutes(r, db)
 	api.Customer_OrderRoutes(r, db)
+	api.StaffRoutes(r, db)
 
 	r.Run(":9090")
 }
