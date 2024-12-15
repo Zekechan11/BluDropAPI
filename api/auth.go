@@ -24,6 +24,17 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 		c.JSON(http.StatusOK, gin.H{"users": users})
 	})
 
+	r.GET("/users/count", func(c *gin.Context) {
+		var count int
+		err := db.Get(&count, "SELECT COUNT(*) FROM accounts WHERE role = 'customer'")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	
+		c.JSON(http.StatusOK, gin.H{"total_users": count})
+	})
+
 	r.POST("/accounts", func(c *gin.Context) {
 		var account struct {
 			Firstname string `json:"firstname" binding:"required"`
