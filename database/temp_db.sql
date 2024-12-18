@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 18, 2024 at 02:41 PM
+-- Generation Time: Dec 18, 2024 at 08:04 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -50,7 +50,9 @@ INSERT INTO `accounts` (`Id`, `FirstName`, `LastName`, `Email`, `Area`, `Passwor
 (30, 'qweqw', 'eweqw', 'qeqwe@mail.com', 'Guadalupe, Bogo City, Cebu', '123', 'qwe', 'Customer'),
 (31, 'qweqwe', 'qweqwe', 'qwew@mail.com', 'qwewq', '123', 'weq', 'Customer'),
 (32, 'Ezekiel Angelo', 'Pelayo', 'eianezekiel@yahoo.com', 'Cayang, Bogo City, Cebu', '123', 'qwe', 'Customer'),
-(33, 'Pengwin', 'Kobayashi', 'pengwinkobayashi@gmail.com', 'Gairan, Bogo City, Cebu', '1234567890', 'jsdalfhasjdfhjaskfd2414', 'Admin');
+(33, 'Pengwin', 'Kobayashi', 'pengwinkobayashi@gmail.com', 'Gairan, Bogo City, Cebu', '1234567890', 'jsdalfhasjdfhjaskfd2414', 'Admin'),
+(34, 'Cat', 'Win', 'catwin@gmail.com', 'Nowhere', '123', 'idk', 'Customer'),
+(35, 'Carla', 'Maono', 'carlamaono@gmail.com', 'Gargle', '123', '123', 'Customer');
 
 -- --------------------------------------------------------
 
@@ -104,6 +106,26 @@ INSERT INTO `areas` (`Id`, `Area`) VALUES
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `containers_on_loan`
+--
+
+CREATE TABLE `containers_on_loan` (
+  `containers_on_loan_id` int(11) NOT NULL,
+  `customer_id` int(11) NOT NULL,
+  `total_containers_on_loan` int(11) NOT NULL,
+  `gallons_returned` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `containers_on_loan`
+--
+
+INSERT INTO `containers_on_loan` (`containers_on_loan_id`, `customer_id`, `total_containers_on_loan`, `gallons_returned`) VALUES
+(2, 34, 50, 0);
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `customer_order`
 --
 
@@ -122,35 +144,8 @@ CREATE TABLE `customer_order` (
 --
 
 INSERT INTO `customer_order` (`Id`, `num_gallons_order`, `date`, `date_created`, `customer_id`, `total_price`, `status`) VALUES
-(2, 10, '20241212', '2024-12-12 06:35:11', NULL, 0.00, ''),
-(3, 10, 'Thursday', '2024-12-12 06:36:36', NULL, 0.00, ''),
-(4, 100, 'Tuesday', '2024-12-12 08:15:15', NULL, 0.00, ''),
-(5, 10, 'Tuesday', '2024-12-12 08:18:17', NULL, 0.00, ''),
-(6, 10, 'Tuesday', '2024-12-12 08:18:19', NULL, 0.00, ''),
-(7, 10, 'Tuesday', '2024-12-12 08:20:13', NULL, 0.00, ''),
-(8, 10, 'Tuesday', '2024-12-12 08:20:57', NULL, 0.00, ''),
-(9, 10, 'Tuesday', '2024-12-12 08:21:08', NULL, 0.00, ''),
-(10, 10, 'Tuesday', '2024-12-12 08:21:11', NULL, 0.00, ''),
-(11, 10, 'Tuesday', '2024-12-12 08:21:40', NULL, 0.00, ''),
-(12, 20, 'Tuesday', '2024-12-12 08:22:20', NULL, 0.00, ''),
-(13, 20, 'Tuesday', '2024-12-12 08:25:49', NULL, 0.00, ''),
-(14, 1, 'Thursday', '2024-12-12 08:41:06', NULL, 0.00, ''),
-(15, 2, 'Thursday', '2024-12-12 08:50:52', NULL, 0.00, ''),
-(16, 2, 'Thursday', '2024-12-12 08:50:57', NULL, 0.00, ''),
-(17, 14, 'Thursday', '2024-12-12 08:51:15', NULL, 0.00, ''),
-(18, 20, 'Tuesday', '2024-12-12 08:53:28', NULL, 0.00, ''),
-(19, 12, 'Tuesday', '2024-12-13 07:15:32', NULL, 0.00, ''),
-(20, 100, 'Thursday', '2024-12-13 07:57:24', NULL, 0.00, ''),
-(21, 1, 'Thursday', '2024-12-13 09:15:40', NULL, 0.00, ''),
-(22, 21, 'Tuesday', '2024-12-13 09:20:49', NULL, 0.00, ''),
-(23, 1, 'Thursday', '2024-12-17 09:01:42', NULL, 0.00, ''),
-(24, 100, 'Thursday', '2024-12-18 06:30:01', NULL, 0.00, ''),
-(25, 69, 'Tuesday', '2024-12-18 06:30:41', NULL, 0.00, ''),
-(26, 111, 'Tuesday', '2024-12-18 06:50:22', NULL, 0.00, ''),
-(27, 10, '2024-12-18', '2024-12-18 07:06:21', 32, 0.00, ''),
-(28, 555, '2024-12-18', '2024-12-18 09:14:30', 32, 0.00, ''),
-(29, 123, 'Tuesday', '2024-12-18 09:41:30', 32, 0.00, ''),
-(30, 666999, 'Tuesday', '2024-12-18 09:43:14', 32, 0.00, '');
+(43, 50, 'Tuesday', '2024-12-18 18:27:47', 34, 1000.00, 'Completed'),
+(51, 20, 'Tuesday', '2024-12-18 18:57:29', 35, 400.00, 'Pending');
 
 -- --------------------------------------------------------
 
@@ -184,6 +179,13 @@ CREATE TABLE `inventory_available` (
   `price` decimal(11,2) NOT NULL,
   `last_updated` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `inventory_available`
+--
+
+INSERT INTO `inventory_available` (`inventory_id`, `total_quantity`, `price`, `last_updated`) VALUES
+(1, 30, 20.00, '2024-12-18 18:57:29');
 
 -- --------------------------------------------------------
 
@@ -304,6 +306,12 @@ ALTER TABLE `areas`
   ADD PRIMARY KEY (`Id`);
 
 --
+-- Indexes for table `containers_on_loan`
+--
+ALTER TABLE `containers_on_loan`
+  ADD PRIMARY KEY (`containers_on_loan_id`);
+
+--
 -- Indexes for table `customer_order`
 --
 ALTER TABLE `customer_order`
@@ -341,7 +349,7 @@ ALTER TABLE `staffs`
 -- AUTO_INCREMENT for table `accounts`
 --
 ALTER TABLE `accounts`
-  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
+  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
 
 --
 -- AUTO_INCREMENT for table `agents`
@@ -356,10 +364,16 @@ ALTER TABLE `areas`
   MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
+-- AUTO_INCREMENT for table `containers_on_loan`
+--
+ALTER TABLE `containers_on_loan`
+  MODIFY `containers_on_loan_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
 -- AUTO_INCREMENT for table `customer_order`
 --
 ALTER TABLE `customer_order`
-  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=52;
 
 --
 -- AUTO_INCREMENT for table `inventory`
@@ -371,7 +385,7 @@ ALTER TABLE `inventory`
 -- AUTO_INCREMENT for table `inventory_available`
 --
 ALTER TABLE `inventory_available`
-  MODIFY `inventory_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `inventory_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `messages`
