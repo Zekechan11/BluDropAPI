@@ -11,13 +11,15 @@ import (
 )
 
 type CustomerOrder struct {
-	ID                int    `db:"Id"`
-	CustomerID        int    `db:"customer_id"`
-	CustomerFirstName string `db:"FirstName"`
-	CustomerLastName  string `db:"LastName"`
-	Num_gallons_order int    `db:"num_gallons_order"`
-	Date              string `db:"date"`
-	Date_created      string `db:"date_created"`
+	ID                int     `db:"Id"`
+	CustomerID        int     `db:"customer_id"`
+	CustomerFirstName string  `db:"FirstName"`
+	CustomerLastName  string  `db:"LastName"`
+	Num_gallons_order int     `db:"num_gallons_order"`
+	Date              string  `db:"date"`
+	Date_created      string  `db:"date_created"`
+	Total_price       float64 `db:"total_price"`
+	Status            string  `db:"status"`
 }
 
 func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
@@ -31,7 +33,9 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 				a.LastName, 
 				co.num_gallons_order, 
 				co.date, 
-				co.date_created 
+				co.date_created,
+				co.total_price,
+				co.status
 			FROM 
 				customer_order co
 			LEFT JOIN 
@@ -54,6 +58,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			CustomerID        string `json:"customer_id"`
 			Num_gallons_order string `json:"num_gallons_order"`
 			Date              string `json:"date"`
+			Status            string `json:"status"`
 		}
 
 		// Bind JSON and log any binding errors
@@ -94,17 +99,54 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			insertCustomerOrder.Date = time.Now().Format("2006-01-02")
 		}
 
-		// Prepare insert query
+		// Calculate total price based on inventory price
+		var totalPrice float64
+		getPriceQuery := `
+			SELECT price * ? 
+			FROM inventory_available 
+			ORDER BY last_updated DESC 
+			LIMIT 1
+		`
+		err = db.Get(&totalPrice, getPriceQuery, numGallons)
+		if err != nil {
+			log.Printf("Error calculating total price: %v", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Failed to calculate price",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		// Default status if not provided
+		if insertCustomerOrder.Status == "" {
+			insertCustomerOrder.Status = "Pending"
+		}
+
+		// Start a transaction
+		tx, err := db.Beginx()
+		if err != nil {
+			log.Printf("Error starting transaction: %v", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Failed to start transaction",
+				"details": err.Error(),
+			})
+			return
+		}
+		defer tx.Rollback() // Rollback in case of any error
+
+		// Prepare insert query for customer order
 		insertQuery := `
 			INSERT INTO customer_order 
-			(customer_id, num_gallons_order, date, date_created) 
-			VALUES (?, ?, ?, NOW())`
+			(customer_id, num_gallons_order, date, date_created, total_price, status) 
+			VALUES (?, ?, ?, NOW(), ?, ?)`
 
 		// Execute the query
-		result, err := db.Exec(insertQuery,
+		result, err := tx.Exec(insertQuery,
 			insertCustomerOrder.CustomerID,
 			numGallons,
 			insertCustomerOrder.Date,
+			totalPrice,
+			insertCustomerOrder.Status,
 		)
 
 		if err != nil {
@@ -127,12 +169,48 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
+		// If status is Pending, subtract from inventory
+		if insertCustomerOrder.Status == "Pending" {
+			updateInventoryQuery := `
+				UPDATE inventory_available 
+				SET total_quantity = total_quantity - ?, 
+				    last_updated = NOW()
+				WHERE inventory_id = (
+					SELECT inventory_id 
+					FROM inventory_available 
+					ORDER BY last_updated DESC 
+					LIMIT 1
+				)
+			`
+			_, err = tx.Exec(updateInventoryQuery, numGallons)
+			if err != nil {
+				log.Printf("Error updating inventory: %v", err)
+				ctx.JSON(http.StatusInternalServerError, gin.H{
+					"error":   "Failed to update inventory",
+					"details": err.Error(),
+				})
+				return
+			}
+		}
+
+		// Commit the transaction
+		err = tx.Commit()
+		if err != nil {
+			log.Printf("Error committing transaction: %v", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Failed to save order and update inventory",
+				"details": err.Error(),
+			})
+			return
+		}
+
 		// Successful response
 		log.Printf("Order saved successfully. ID: %d", lastID)
 		ctx.JSON(http.StatusOK, gin.H{
-			"message":  "Order saved successfully",
-			"order_id": lastID,
-			"order":    insertCustomerOrder,
+			"message":     "Order saved successfully",
+			"order_id":    lastID,
+			"total_price": totalPrice,
+			"order":       insertCustomerOrder,
 		})
 	})
 }

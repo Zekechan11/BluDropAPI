@@ -26,11 +26,6 @@ customer_order:
     total_price
     status
 
-Inventory:
-    inventory_id
-    item
-    no_of_items
-
 Messages:
     id
     sender
