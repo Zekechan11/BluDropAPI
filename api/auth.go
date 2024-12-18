@@ -31,7 +31,7 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-	
+
 		c.JSON(http.StatusOK, gin.H{"total_users": count})
 	})
 
@@ -90,13 +90,13 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 		}
 
 		var user struct {
-			ID       int    `db:"id"`
+			ID        int    `db:"id"`
 			FirstName string `db:"firstName"`
-        	LastName  string `db:"lastName"`
-        	Area      string `db:"area"`
-			Email    string `db:"email"`
-			Role     string `db:"role"`
-			Password string `db:"password"`
+			LastName  string `db:"lastName"`
+			Area      string `db:"area"`
+			Email     string `db:"email"`
+			Role      string `db:"role"`
+			Password  string `db:"password"`
 		}
 
 		err := db.Get(&user, "SELECT id, firstName, lastName, area, email, password, role FROM accounts WHERE email = ?", account.Email)
@@ -117,12 +117,13 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Login successful",
-			"token":   token,
-			"role":    user.Role,
+			"message":   "Login successful",
+			"token":     token,
+			"id":        user.ID, // Corrected to use user.ID
+			"role":      user.Role,
 			"firstName": user.FirstName,
-        	"lastName":  user.LastName,
-        	"area":      user.Area,
+			"lastName":  user.LastName,
+			"area":      user.Area,
 			"email":     user.Email,
 		})
 	})

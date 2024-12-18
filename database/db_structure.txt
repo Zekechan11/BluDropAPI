@@ -1,0 +1,42 @@
+Accounts:
+    Id
+    FirstName
+    LastName
+    Email
+    Area
+    Password
+    QRCode
+    Role
+
+Agents:
+    Id
+    area_id
+    agent_name
+
+Areas:
+    Id
+    Area
+
+CustomerOrder:
+    Id
+    num_gallons_order
+    date
+    date_created
+    customer_id
+
+Inventory:
+    inventory_id
+    item
+    no_of_items
+
+Messages:
+    id
+    sender
+    recipient
+    content
+    timestamp
+
+Staffs:
+    id
+    staff_name
+    address
