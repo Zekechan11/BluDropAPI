@@ -2,6 +2,8 @@ package api
 
 import (
 	"net/http"
+	"waterfalls/dto"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )
@@ -116,9 +118,48 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Agent deleted successfully"})
 }
 
+func (hand *AgentHandler) GetAllAgentsAccount(ctx *gin.Context) {
+	query := `
+		SELECT id, firstname, lastname, email, area FROM accounts
+		WHERE role = "Staff"
+	`
+	var agents []dto.AgentsEntity
+	err := hand.DB.Select(&agents, query)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, agents)
+}
+
+func (hand *AgentHandler) CreateAgentAccount(ctx *gin.Context) {
+	var agent dto.AgentsModel
+	if err := ctx.ShouldBindJSON(&agent); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	query := `
+			INSERT INTO accounts (firstname, lastname, email, area, password, role)
+			VALUES (:firstname, :lastname, :email, :email, :password, :role)
+			`
+	result, err := hand.DB.NamedExec(query, agent)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, result)
+
+}
+
 // RegisterAgentRoutes registers the Agent routes with the given router
 func RegisterAgentRoutes(r *gin.Engine, db *sqlx.DB) {
 	agentHandler := NewAgentHandler(db)
+
+	r.GET("/api/agents", agentHandler.GetAllAgentsAccount)
+	r.POST("/api/agent", agentHandler.CreateAgentAccount)
 
 	r.POST("/agent", agentHandler.CreateAgent)
 	r.GET("/agent", agentHandler.GetAllAgents)
