@@ -43,3 +43,9 @@ inventory_available:
     total_quantity
     price 
     last_updated
+
+containers_on_loan:
+    containers_on_loan_id
+    customer_id
+    total_containers_on_loan
+    gallons_returned

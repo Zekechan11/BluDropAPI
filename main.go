@@ -1,13 +1,14 @@
 package main
 
 import (
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
-	_ "github.com/go-sql-driver/mysql"
 	"log"
 	"net/http"
 	"waterfalls/api"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
 )
 
 func main() {
@@ -44,6 +45,7 @@ func main() {
 	api.InventoryRoutes(r, db)
 	api.Customer_OrderRoutes(r, db)
 	api.StaffRoutes(r, db)
+	api.PaymentRoutes(r, db)
 
 	r.Run(":9090")
 }
