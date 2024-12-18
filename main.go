@@ -46,6 +46,7 @@ func main() {
 	api.Customer_OrderRoutes(r, db)
 	api.StaffRoutes(r, db)
 	api.PaymentRoutes(r, db)
+	api.CustomerRoutes(r, db)
 
 	r.Run(":9090")
 }

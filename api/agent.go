@@ -140,6 +140,10 @@ func (hand *AgentHandler) CreateAgentAccount(ctx *gin.Context) {
 		return
 	}
 
+	if agent.Role == "" {
+		agent.Role = "Staff"
+	}
+
 	query := `
 			INSERT INTO accounts (firstname, lastname, email, area, password, role)
 			VALUES (:firstname, :lastname, :email, :email, :password, :role)
@@ -150,7 +154,16 @@ func (hand *AgentHandler) CreateAgentAccount(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, result)
+	lastInsertedID, err := result.RowsAffected()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Something went wrong"})
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, gin.H{
+		"message": "Agent account created successfully",
+		"agentId": lastInsertedID,
+	})
 
 }
 
