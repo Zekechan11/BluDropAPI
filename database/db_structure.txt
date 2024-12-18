@@ -17,12 +17,14 @@ Areas:
     Id
     Area
 
-CustomerOrder:
+customer_order:
     Id
     num_gallons_order
     date
     date_created
     customer_id
+    total_price
+    status
 
 Inventory:
     inventory_id
@@ -40,3 +42,9 @@ Staffs:
     id
     staff_name
     address
+
+inventory_available:
+    inventory_id
+    total_quantity
+    price 
+    last_updated
