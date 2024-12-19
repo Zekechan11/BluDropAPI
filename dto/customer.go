@@ -1,9 +1,9 @@
 package dto
 
 type CustomerEntity struct {
-	ID int `db:"id"`
-	FirstName string `db:"firstname"`
-	LastName string `db:"lastname"`
-	Email string `db:"email"`
-	Area string `db:"area"`
+	ID        int    `db:"id" json:"ID"`
+	FirstName string `db:"firstname" json:"FirstName"`
+	LastName  string `db:"lastname" json:"LastName"`
+	Email     string `db:"email" json:"Email"`
+	Area      string `db:"area" json:"Area"`
 }
