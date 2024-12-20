@@ -45,6 +45,7 @@ func main() {
 	api.InventoryRoutes(r, db)
 	api.Customer_OrderRoutes(r, db)
 	api.StaffRoutes(r, db)
+	api.ClientRoutes(r, db)
 	api.PaymentRoutes(r, db)
 	api.CustomerRoutes(r, db)
 
