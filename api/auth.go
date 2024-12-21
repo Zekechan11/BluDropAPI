@@ -127,4 +127,64 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 			"email":     user.Email,
 		})
 	})
+
+
+
+	r.POST("/v2/api/login", func(c *gin.Context) {
+		var account struct {
+			Email    string `json:"email" binding:"required"`
+			Password string `json:"password" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&account); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		var user struct {
+			Uid        int    `db:"uid"`
+			FirstName string `db:"firstname"`
+			LastName  string `db:"lastname"`
+			UserName  string `db:"username"`
+			Email     string `db:"email"`
+			Role      string `db:"role"`
+			Password  string `db:"password"`
+		}
+
+		query := `
+			SELECT client_id AS uid, firstname, lastname, username, email, password, role FROM client_accounts
+			WHERE email = ?
+			UNION ALL
+			SELECT staff_id AS uid, firstname, lastname, NULL AS username, email, password, role FROM staff_accounts
+			WHERE email = ?`
+
+		err := db.Get(&user, query, account.Email, account.Email)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+			return
+		}
+
+		if account.Password != user.Password {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+			return
+		}
+
+		token, err := util.GenerateJWT(user.Uid, user.Email, user.Role)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":   "Login successful",
+			"token":     token,
+			"user_info": gin.H{
+				"user_id":        user.Uid,
+				"role":      user.Role,
+				"firstname": user.FirstName,
+				"lastname":  user.LastName,
+				"email":     user.Email,
+			},
+		})
+	})
 }
