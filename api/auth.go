@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"waterfalls/dto"
 	"waterfalls/util"
 
 	"github.com/gin-gonic/gin"
@@ -141,15 +142,7 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		var user struct {
-			Uid        int    `db:"uid"`
-			FirstName string `db:"firstname"`
-			LastName  string `db:"lastname"`
-			UserName  string `db:"username"`
-			Email     string `db:"email"`
-			Role      string `db:"role"`
-			Password  string `db:"password"`
-		}
+		var user dto.LoginData
 
 		query := `
 			SELECT client_id AS uid, firstname, lastname, username, email, password, role FROM client_accounts
