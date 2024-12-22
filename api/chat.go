@@ -20,6 +20,22 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+func HandleMessages(db *sqlx.DB) {
+	for {
+		msg := <-Broadcast
+		msg.Timestamp = time.Now()
+
+		for client := range Clients {
+			err := client.WriteJSON(msg)
+			if err != nil {
+				fmt.Println("Error writing message to client:", err)
+				client.Close()
+				delete(Clients, client)
+			}
+		}
+	}
+}
+
 func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 	r.POST("/send_message", func(c *gin.Context) {
 		var msg dto.Message
@@ -29,10 +45,10 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 		}
 
 		// Insert message into the database using sqlx's NamedExec
-		query := "INSERT INTO messages (sender, recipient, content, timestamp) VALUES (:sender, :recipient, :content, :timestamp)"
+		query := "INSERT INTO messages (user_id, area_id, content, timestamp) VALUES (:user_id, :area_id, :content, :timestamp)"
 		_, err := db.NamedExec(query, map[string]interface{}{
-			"sender":    msg.Sender,
-			"recipient": msg.Recipient,
+			"user_id":    msg.UserId,
+			"area_id": msg.AreaId,
 			"content":   msg.Content,
 			"timestamp": time.Now(),
 		})
@@ -49,8 +65,7 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 
 	r.GET("/get_message/:id", func(c *gin.Context) {
 		conversationID := c.Param("id")
-
-		// Use sqlx to query messages, and automatically map the result to a slice of dto.Message
+		
 		query := `
 			SELECT sender, recipient, content, timestamp 
 			FROM messages 
@@ -94,10 +109,10 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 			}
 
 			// Insert the message into the database
-			query := "INSERT INTO messages (sender, recipient, content, timestamp) VALUES (:sender, :recipient, :content, :timestamp)"
+			query := "INSERT INTO messages (user_id, area_id, content, timestamp) VALUES (:user_id, :area_id, :content, :timestamp)"
 			_, err = db.NamedExec(query, map[string]interface{}{
-				"sender":    msg.Sender,
-				"recipient": msg.Recipient,
+				"user_id":    msg.UserId,
+				"area_id": msg.AreaId,
 				"content":   msg.Content,
 				"timestamp": time.Now(),
 			})
@@ -110,23 +125,4 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 			Broadcast <- msg
 		}
 	})
-}
-
-func HandleMessages(db *sqlx.DB) {
-	for {
-		msg := <-Broadcast
-
-		// Set the timestamp to the current time before broadcasting
-		msg.Timestamp = time.Now()
-
-		// Send the message to all connected clients
-		for client := range Clients {
-			err := client.WriteJSON(msg)
-			if err != nil {
-				fmt.Println("Error writing message to client:", err)
-				client.Close()
-				delete(Clients, client)
-			}
-		}
-	}
 }

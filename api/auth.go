@@ -172,7 +172,7 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 			"message":   "Login successful",
 			"token":     token,
 			"user_info": gin.H{
-				"user_id":        user.Uid,
+				"uid":   	 user.Uid,
 				"role":      user.Role,
 				"firstname": user.FirstName,
 				"lastname":  user.LastName,
