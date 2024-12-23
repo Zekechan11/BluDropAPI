@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	dsn := "root@tcp(localhost:3306)/temp_db"
+	dsn := "root@tcp(localhost:3306)/waterfalls"
 	db, err := sqlx.Open("mysql", dsn)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
