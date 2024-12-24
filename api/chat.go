@@ -63,13 +63,34 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 		c.JSON(http.StatusOK, gin.H{"status": "Message sent"})
 	})
 
+	r.GET("/chat/customer/:user_id", func(ctx *gin.Context) {
+		userId := ctx.Param("user_id")
+
+		query := `
+			SELECT message_id, m.user_id, c.firstname, c.lastname, area_id, content, timestamp 
+			FROM messages m
+			LEFT JOIN client_accounts c ON m.user_id = c.client_id
+			WHERE m.user_id = ?
+			ORDER BY timestamp ASC`
+		
+		var messages []dto.MessageEntity
+		err := db.Select(&messages, query, userId)
+		if err != nil {
+			fmt.Println("WebSocket read error:", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve messages"})
+			return
+		}
+
+		ctx.JSON(http.StatusOK, gin.H{"messages": messages})
+	})
+
 	r.GET("/get_message/:id", func(c *gin.Context) {
 		conversationID := c.Param("id")
-		
+
 		query := `
-			SELECT sender, recipient, content, timestamp 
+			SELECT user_id, area_id, content, timestamp 
 			FROM messages 
-			WHERE sender = :conversation_id OR recipient = :conversation_id 
+			WHERE user_id = :conversation_id OR area_id = :conversation_id 
 			ORDER BY timestamp ASC`
 		
 		var messages []dto.Message
@@ -84,7 +105,7 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 		c.JSON(http.StatusOK, gin.H{"messages": messages})
 	})
 
-	r.GET("/ws", func(c *gin.Context) {
+	r.GET("/chat", func(c *gin.Context) {
 		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
 			fmt.Println("WebSocket upgrade error:", err)
