@@ -47,7 +47,7 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 		// Insert message into the database using sqlx's NamedExec
 		query := "INSERT INTO messages (user_id, area_id, content, timestamp) VALUES (:user_id, :area_id, :content, :timestamp)"
 		_, err := db.NamedExec(query, map[string]interface{}{
-			"user_id":    msg.UserId,
+			"user_id":    msg.SenderId,
 			"area_id": msg.AreaId,
 			"content":   msg.Content,
 			"timestamp": time.Now(),
@@ -63,18 +63,25 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 		c.JSON(http.StatusOK, gin.H{"status": "Message sent"})
 	})
 
-	r.GET("/chat/customer/:user_id", func(ctx *gin.Context) {
-		userId := ctx.Param("user_id")
+	r.GET("/chat/customer/:username", func(ctx *gin.Context) {
+		username := ctx.Param("username")
 
 		query := `
-			SELECT message_id, m.user_id, c.firstname, c.lastname, area_id, content, timestamp 
+			SELECT
+				message_id,
+				m.customer,
+				m.sender_id,
+				CONCAT(c.firstname, ' ', c.lastname) AS fullname,
+				area_id,
+				content,
+				timestamp 
 			FROM messages m
-			LEFT JOIN client_accounts c ON m.user_id = c.client_id
-			WHERE m.user_id = ?
+			LEFT JOIN client_accounts c ON m.sender_id = c.client_id
+			WHERE m.customer = ?
 			ORDER BY timestamp ASC`
 		
 		var messages []dto.MessageEntity
-		err := db.Select(&messages, query, userId)
+		err := db.Select(&messages, query, username)
 		if err != nil {
 			fmt.Println("WebSocket read error:", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve messages"})
@@ -129,11 +136,14 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 				break
 			}
 
-			// Insert the message into the database
-			query := "INSERT INTO messages (user_id, area_id, content, timestamp) VALUES (:user_id, :area_id, :content, :timestamp)"
+			query := `
+				INSERT INTO messages (sender_id, area_id, customer, content, timestamp)
+				VALUES (:sender_id, :area_id, :customer, :content, :timestamp)`
+
 			_, err = db.NamedExec(query, map[string]interface{}{
-				"user_id":    msg.UserId,
+				"sender_id":    msg.SenderId,
 				"area_id": msg.AreaId,
+				"customer": msg.Customer,
 				"content":   msg.Content,
 				"timestamp": time.Now(),
 			})
