@@ -63,6 +63,27 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 		c.JSON(http.StatusOK, gin.H{"status": "Message sent"})
 	})
 
+	r.GET("/get_message/:id", func(c *gin.Context) {
+		conversationID := c.Param("id")
+
+		query := `
+			SELECT user_id, area_id, content, timestamp 
+			FROM messages 
+			WHERE user_id = :conversation_id OR area_id = :conversation_id 
+			ORDER BY timestamp ASC`
+		
+		var messages []dto.Message
+		err := db.Select(&messages, query, map[string]interface{}{
+			"conversation_id": conversationID,
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve messages"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"messages": messages})
+	})
+
 	r.GET("/chat/customer/:username", func(ctx *gin.Context) {
 		username := ctx.Param("username")
 
@@ -91,25 +112,33 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 		ctx.JSON(http.StatusOK, gin.H{"messages": messages})
 	})
 
-	r.GET("/get_message/:id", func(c *gin.Context) {
-		conversationID := c.Param("id")
+	r.GET("/chat/list/agent/:area_id", func(ctx *gin.Context) {
+		areaId := ctx.Param("area_id")
 
 		query := `
-			SELECT user_id, area_id, content, timestamp 
-			FROM messages 
-			WHERE user_id = :conversation_id OR area_id = :conversation_id 
+			SELECT
+				message_id,
+				m.customer,
+				m.sender_id,
+				CONCAT(c.firstname, ' ', c.lastname) AS fullname,
+				area_id,
+				content,
+				timestamp 
+			FROM messages m
+			LEFT JOIN client_accounts c ON m.sender_id = c.client_id
+			WHERE m.area_id = ?
+			GROUP BY m.customer
 			ORDER BY timestamp ASC`
 		
-		var messages []dto.Message
-		err := db.Select(&messages, query, map[string]interface{}{
-			"conversation_id": conversationID,
-		})
+		var messages []dto.MessageEntity
+		err := db.Select(&messages, query, areaId)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve messages"})
+			fmt.Println("WebSocket read error:", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve messages"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"messages": messages})
+		ctx.JSON(http.StatusOK, gin.H{"messages": messages})
 	})
 
 	r.GET("/chat", func(c *gin.Context) {
