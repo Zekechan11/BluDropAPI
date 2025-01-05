@@ -25,22 +25,22 @@ func ScheduleRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		availableDays := make(map[string]bool)
+		var availableDays []string
 
 		if schedule.Monday {
-			availableDays["monday"] = true
+			availableDays = append(availableDays, "Monday")
 		}
 		if schedule.Tuesday {
-			availableDays["tuesday"] = true
+			availableDays = append(availableDays, "Tuesday")
 		}
 		if schedule.Wednesday {
-			availableDays["wednesday"] = true
+			availableDays = append(availableDays, "Wednesday")
 		}
 		if schedule.Thursday {
-			availableDays["thursday"] = true
+			availableDays = append(availableDays, "Thursday")
 		}
 		if schedule.Friday {
-			availableDays["friday"] = true
+			availableDays = append(availableDays, "Friday")
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
