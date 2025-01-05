@@ -3,7 +3,9 @@ package api
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"waterfalls/dto"
+	"waterfalls/util"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -30,13 +32,27 @@ func ClientRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
+		insertClient.Username = strings.ToLower(insertClient.Username)
+		insertClient.Email = strings.ToLower(insertClient.Email)
+
+		exists, err := util.CheckUsernameOrEmailExists(db, insertClient.Username, insertClient.Email)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check username/email: " + err.Error()})
+			return
+		}
+
+		if exists {
+			ctx.JSON(http.StatusConflict, gin.H{"error": "Username or email already exists"})
+			return
+		}
+
 		insertClient.Role = "Customer"
 
 		insertQuery := `
     		INSERT INTO client_accounts (firstname, lastname, email, username, password, address, role) 
     		VALUES (:firstname, :lastname, :username, :email, :password, :address, :role)`
 
-		_, err := db.NamedExec(insertQuery, insertClient)
+		_, err = db.NamedExec(insertQuery, insertClient)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save client: " + err.Error()})
 			return
