@@ -35,7 +35,7 @@ func ClientRoutes(r *gin.Engine, db *sqlx.DB) {
 		insertClient.Username = strings.ToLower(insertClient.Username)
 		insertClient.Email = strings.ToLower(insertClient.Email)
 
-		exists, err := util.CheckUsernameOrEmailExists(db, insertClient.Username, insertClient.Email)
+		exists, err := util.ClientUsernameOrEmailCheck(db, insertClient.Username, insertClient.Email)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check username/email: " + err.Error()})
 			return

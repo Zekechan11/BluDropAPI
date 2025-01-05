@@ -6,7 +6,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-func CheckUsernameOrEmailExists(db *sqlx.DB, username, email string) (bool, error) {
+func ClientUsernameOrEmailCheck(db *sqlx.DB, username, email string) (bool, error) {
 	query := `
 		SELECT COUNT(*) 
 		FROM client_accounts 
@@ -17,6 +17,23 @@ func CheckUsernameOrEmailExists(db *sqlx.DB, username, email string) (bool, erro
 	err := db.Get(&count, query, username, email)
 	if err != nil {
 		log.Println("Error checking username/email existence:", err)
+		return false, err
+	}
+	
+	return count > 0, nil
+}
+
+func SatffEmailCheck(db *sqlx.DB, email string) (bool, error) {
+	query := `
+		SELECT COUNT(*) 
+		FROM staff_accounts 
+		WHERE email = ?
+	`
+	
+	var count int
+	err := db.Get(&count, query, email)
+	if err != nil {
+		log.Println("Error checking email existence:", err)
 		return false, err
 	}
 	

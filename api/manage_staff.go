@@ -3,7 +3,9 @@ package api
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"waterfalls/dto"
+	"waterfalls/util"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -114,11 +116,11 @@ func StaffRoutes(r *gin.Engine, db *sqlx.DB) {
 
 		staff_id := ctx.Param("staff_id")
 
+		id, _ := strconv.Atoi(staff_id)
+
 		var staff dto.StaffModel
 
-		staff.StaffId,_ = strconv.Atoi(staff_id)
-
-		err := db.Select(&staff, "SELECT staff_id, firstname FROM staff_accounts WHERE staff_id = :staff_id")
+		err := db.Get(&staff, "SELECT staff_id, firstname FROM staff_accounts WHERE staff_id = ?", id)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -138,13 +140,26 @@ func StaffRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
+		insertStaff.Email = strings.ToLower(insertStaff.Email)
+
+		exists, err := util.SatffEmailCheck(db, insertStaff.Email)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check email: " + err.Error()})
+			return
+		}
+
+		if exists {
+			ctx.JSON(http.StatusConflict, gin.H{"error": "Email already exists"})
+			return
+		}
+
 		insertStaff.Role = role
 
 		insertQuery := `
     		INSERT INTO staff_accounts (firstname, lastname, email, password, role) 
     		VALUES (:firstname, :lastname, :email, :password, :role)`
 
-		_, err := db.NamedExec(insertQuery, insertStaff)
+		_, err = db.NamedExec(insertQuery, insertStaff)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save staff: " + err.Error()})
 			return
@@ -190,5 +205,4 @@ func StaffRoutes(r *gin.Engine, db *sqlx.DB) {
 
 		ctx.JSON(http.StatusOK, gin.H{"message": "Staff deleted successfully"})
 	})
-
 }
