@@ -55,7 +55,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 
 		// Struct to bind JSON input
 		var insertCustomerOrder struct {
-			CustomerID        string `json:"customer_id"`
+			CustomerID        int `json:"customer_id"`
 			Num_gallons_order string `json:"num_gallons_order"`
 			Date              string `json:"date"`
 			Status            string `json:"status"`
@@ -75,7 +75,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 		log.Printf("Received Order Data: %+v", insertCustomerOrder)
 
 		// Validate customer ID
-		if insertCustomerOrder.CustomerID == "" {
+		if insertCustomerOrder.CustomerID == 0 {
 			log.Println("Error: Customer ID is NULL")
 			ctx.JSON(http.StatusBadRequest, gin.H{
 				"error": "Customer ID is required",

@@ -71,8 +71,8 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 				message_id,
 				m.customer,
 				m.sender_id,
+				m.area_id,
 				CONCAT(c.firstname, ' ', c.lastname) AS fullname,
-				area_id,
 				content,
 				timestamp 
 			FROM messages m
@@ -99,8 +99,8 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 				message_id,
 				m.customer,
 				m.sender_id,
+				m.area_id,
 				CONCAT(c.firstname, ' ', c.lastname) AS fullname,
-				area_id,
 				content,
 				timestamp 
 			FROM messages m
@@ -127,8 +127,8 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 				message_id,
 				m.customer,
 				m.sender_id,
+				m.area_id,
 				CONCAT(c.firstname, ' ', c.lastname) AS fullname,
-				area_id,
 				content,
 				timestamp 
 			FROM messages m

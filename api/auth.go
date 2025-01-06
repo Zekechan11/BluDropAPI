@@ -145,10 +145,14 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 		var user dto.LoginData
 
 		query := `
-			SELECT client_id AS uid, firstname, lastname, username, email, password, role FROM client_accounts
+			SELECT client_id AS uid, area_id, firstname, lastname, username, email, password, role, area
+			FROM client_accounts
+			LEFT JOIN areas ON id = area_id
 			WHERE email = ?
 			UNION ALL
-			SELECT staff_id AS uid, firstname, lastname, NULL AS username, email, password, role FROM staff_accounts
+			SELECT staff_id AS uid, area_id, firstname, lastname, NULL AS username, email, password, role, area
+			FROM staff_accounts
+			LEFT JOIN areas ON id = area_id
 			WHERE email = ?`
 
 		err := db.Get(&user, query, account.Email, account.Email)
@@ -177,6 +181,9 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 				"firstname": user.FirstName,
 				"lastname":  user.LastName,
 				"email":     user.Email,
+				"username":	 user.UserName,
+				"area": 	 user.Area,
+				"area_id":	 user.AreaId,
 			},
 		})
 	})
