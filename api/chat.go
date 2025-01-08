@@ -107,7 +107,7 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 			LEFT JOIN client_accounts c ON m.sender_id = c.client_id
 			WHERE m.area_id = ?
 			GROUP BY m.customer
-			ORDER BY timestamp ASC`
+			ORDER BY timestamp DESC`
 		
 		var messages []dto.MessageEntity
 		err := db.Select(&messages, query, areaId)
@@ -124,17 +124,23 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 
 		query := `
 			SELECT
-				message_id,
+				m.message_id,
 				m.customer,
 				m.sender_id,
 				m.area_id,
 				CONCAT(c.firstname, ' ', c.lastname) AS fullname,
-				content,
-				timestamp 
+				m.content,
+				m.timestamp
 			FROM messages m
 			LEFT JOIN client_accounts c ON m.sender_id = c.client_id
-			GROUP BY m.customer
-			ORDER BY timestamp ASC`
+			INNER JOIN (
+				SELECT customer, MAX(timestamp) AS latest_timestamp
+				FROM messages
+				GROUP BY customer
+			) AS latest_messages
+				ON m.customer = latest_messages.customer
+				AND m.timestamp = latest_messages.latest_timestamp
+			ORDER BY m.timestamp ASC`
 		
 		var messages []dto.MessageEntity
 		err := db.Select(&messages, query)

@@ -49,8 +49,8 @@ func ClientRoutes(r *gin.Engine, db *sqlx.DB) {
 		insertClient.Role = "Customer"
 
 		insertQuery := `
-    		INSERT INTO client_accounts (firstname, lastname, email, username, password, address, role) 
-    		VALUES (:firstname, :lastname, :username, :email, :password, :address, :role)`
+    		INSERT INTO client_accounts (firstname, lastname, email, username, password, area_id, role) 
+    		VALUES (:firstname, :lastname, :username, :email, :password, :area_id, :role)`
 
 		_, err = db.NamedExec(insertQuery, insertClient)
 		if err != nil {
@@ -81,7 +81,7 @@ func ClientRoutes(r *gin.Engine, db *sqlx.DB) {
 				email = :email,
 				username = :username,
 				password = :password,
-				address = :address
+				area_id = :area_id
 			WHERE client_id = :client_id`
 
 		_, err := db.NamedExec(updateQuery, updateClient)

@@ -111,6 +111,19 @@ func StaffRoutes(r *gin.Engine, db *sqlx.DB) {
 		ctx.JSON(http.StatusOK, gin.H{"data": staff})
 	})
 
+	r.GET("/v2/api/get_staff/all/:role", func(ctx *gin.Context) {
+		role := ctx.Param("role")
+
+		var staff []dto.StaffModel
+
+		err := db.Select(&staff, "SELECT s.*, a.area FROM staff_accounts s LEFT JOIN areas a ON id = area_id WHERE role = ?", role)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusOK, staff)
+	})
+
 	// TODO: fix can't select one
 	r.GET("/v2/api/get_staff/:staff_id", func(ctx *gin.Context) {
 
@@ -156,8 +169,8 @@ func StaffRoutes(r *gin.Engine, db *sqlx.DB) {
 		insertStaff.Role = role
 
 		insertQuery := `
-    		INSERT INTO staff_accounts (firstname, lastname, email, password, role) 
-    		VALUES (:firstname, :lastname, :email, :password, :role)`
+    		INSERT INTO staff_accounts (firstname, lastname, email, password, role, area_id) 
+    		VALUES (:firstname, :lastname, :email, :password, :role, :area_id)`
 
 		_, err = db.NamedExec(insertQuery, insertStaff)
 		if err != nil {

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"waterfalls/dto"
 	"waterfalls/util"
@@ -145,18 +146,19 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 		var user dto.LoginData
 
 		query := `
-			SELECT client_id AS uid, area_id, firstname, lastname, username, email, password, role, area
-			FROM client_accounts
+			SELECT staff_id AS uid, area_id, firstname, lastname, NULL AS username, email, password, role, area
+			FROM staff_accounts
 			LEFT JOIN areas ON id = area_id
 			WHERE email = ?
 			UNION ALL
-			SELECT staff_id AS uid, area_id, firstname, lastname, NULL AS username, email, password, role, area
-			FROM staff_accounts
+			SELECT client_id AS uid, area_id, firstname, lastname, username, email, password, role, area
+			FROM client_accounts
 			LEFT JOIN areas ON id = area_id
 			WHERE email = ?`
 
 		err := db.Get(&user, query, account.Email, account.Email)
 		if err != nil {
+			fmt.Println("Error fetching user:", err)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 			return
 		}
