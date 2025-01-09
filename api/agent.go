@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"net/http"
 	"waterfalls/dto"
 
@@ -23,7 +24,31 @@ type InsertAgent struct {
 }
 
 // RegisterAgentRoutes registers the Agent routes with the given router
-func RegisterAgentRoutes(r *gin.Engine, db *sqlx.DB) {
+func AgentRoutes(r *gin.Engine, db *sqlx.DB) {
+
+	r.GET("/v2/api/agent/assigned/:area_id", func(ctx *gin.Context) {
+		area_id := ctx.Param("area_id")
+
+		query := `
+			SELECT
+				CONCAT(firstname, ' ', lastname) AS fullname
+			FROM account_staffs
+			WHERE area_id = ? AND role = 'Agent'
+			LIMIT 1
+		`
+	var fullname string
+
+	err := db.Get(&fullname, query, area_id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "No agent found for the specified area"})
+		} else {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch agent: " + err.Error()})
+		}
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"data": fullname})
+	})
 
 	r.GET("/api/agents", func(ctx *gin.Context) {
 		query := `

@@ -12,10 +12,18 @@ import (
 )
 
 func ClientRoutes(r *gin.Engine, db *sqlx.DB) {
-	r.GET("/v2/api/get_client", func(ctx *gin.Context) {
+	r.GET("/v2/api/get_client/all/:status", func(ctx *gin.Context) {
+		status := ctx.Param("status")
+
 		var client []dto.ClientModel
 
-		err := db.Select(&client, "SELECT * FROM client_accounts")
+		query := `
+			SELECT c.*, area FROM account_clients c
+			LEFT JOIN areas a ON a.id = c.area_id
+			WHERE status = ?
+		`
+
+		err := db.Select(&client, query, status)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -49,8 +57,8 @@ func ClientRoutes(r *gin.Engine, db *sqlx.DB) {
 		insertClient.Role = "Customer"
 
 		insertQuery := `
-    		INSERT INTO client_accounts (firstname, lastname, email, username, password, area_id, role) 
-    		VALUES (:firstname, :lastname, :username, :email, :password, :area_id, :role)`
+    		INSERT INTO account_clients (firstname, lastname, email, username, password, area_id, role) 
+    		VALUES (:firstname, :lastname, :email, :username, :password, :area_id, :role)`
 
 		_, err = db.NamedExec(insertQuery, insertClient)
 		if err != nil {
@@ -74,7 +82,7 @@ func ClientRoutes(r *gin.Engine, db *sqlx.DB) {
 		updateClient.ClientId, _ = strconv.Atoi(client_id)
 
 		updateQuery := `
-			UPDATE client_accounts 
+			UPDATE account_clients 
 			SET
 				firstname = :firstname,
 				lastname = :lastname,
@@ -96,7 +104,7 @@ func ClientRoutes(r *gin.Engine, db *sqlx.DB) {
 	r.DELETE("/v2/api/delete_client/:client_id", func(ctx *gin.Context) {
 		client_id := ctx.Param("client_id")
 
-		_, err := db.Exec("DELETE FROM client_accounts WHERE client_id = ?", client_id)
+		_, err := db.Exec("DELETE FROM account_clients WHERE client_id = ?", client_id)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete client: " + err.Error()})
 			return

@@ -147,12 +147,12 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 
 		query := `
 			SELECT staff_id AS uid, area_id, firstname, lastname, NULL AS username, email, password, role, area
-			FROM staff_accounts
+			FROM account_staffs
 			LEFT JOIN areas ON id = area_id
 			WHERE email = ?
 			UNION ALL
 			SELECT client_id AS uid, area_id, firstname, lastname, username, email, password, role, area
-			FROM client_accounts
+			FROM account_clients
 			LEFT JOIN areas ON id = area_id
 			WHERE email = ?`
 

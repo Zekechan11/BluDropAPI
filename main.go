@@ -40,7 +40,7 @@ func main() {
 
 	api.AuthRoutes(r, db)
 	api.RegisterRoutes(r, db)
-	api.RegisterAgentRoutes(r, db)
+	api.AgentRoutes(r, db)
 	api.ChatRoutes(r, db)
 	api.InventoryRoutes(r, db)
 	api.Customer_OrderRoutes(r, db)

@@ -7,6 +7,7 @@ type InsertStaff struct {
 	Password  string `json:"password"`
 	Role      string `json:"role"`
 	AreaId    int `json:"area_id" db:"area_id"`
+	Created	  string `json:"created" db:"created"`
 }
 
 type StaffModel struct {
@@ -18,4 +19,5 @@ type StaffModel struct {
 	Role      string `json:"role" db:"role"`
 	AreaId    int 	 `json:"area_id" db:"area_id"`
 	Area	  string `json:"area" db:"area"`
+	Created	  string `json:"created" db:"created"`
 }

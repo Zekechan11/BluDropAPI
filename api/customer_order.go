@@ -13,8 +13,8 @@ import (
 type CustomerOrder struct {
 	ID                int     `db:"Id"`
 	CustomerID        int     `db:"customer_id"`
-	CustomerFirstName string  `db:"FirstName"`
-	CustomerLastName  string  `db:"LastName"`
+	CustomerFirstName string  `db:"firstname"`
+	CustomerLastName  string  `db:"lastname"`
 	Num_gallons_order int     `db:"num_gallons_order"`
 	Date              string  `db:"date"`
 	Date_created      string  `db:"date_created"`
@@ -29,8 +29,8 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			SELECT 
 				co.Id, 
 				co.customer_id, 
-				a.FirstName, 
-				a.LastName, 
+				a.firstname, 
+				a.lastname, 
 				co.num_gallons_order, 
 				co.date, 
 				co.date_created,
@@ -39,7 +39,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			FROM 
 				customer_order co
 			LEFT JOIN 
-				Accounts a ON co.customer_id = a.Id
+				account_clients a ON co.customer_id = a.client_id
 		`
 		err := db.Select(&orders, query)
 		if err != nil {

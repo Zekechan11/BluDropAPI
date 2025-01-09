@@ -103,7 +103,7 @@ func StaffRoutes(r *gin.Engine, db *sqlx.DB) {
 	r.GET("/v2/api/get_staff", func(ctx *gin.Context) {
 		var staff []dto.StaffModel
 
-		err := db.Select(&staff, "SELECT * FROM staff_accounts")
+		err := db.Select(&staff, "SELECT * FROM account_staffs")
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -116,7 +116,7 @@ func StaffRoutes(r *gin.Engine, db *sqlx.DB) {
 
 		var staff []dto.StaffModel
 
-		err := db.Select(&staff, "SELECT s.*, a.area FROM staff_accounts s LEFT JOIN areas a ON id = area_id WHERE role = ?", role)
+		err := db.Select(&staff, "SELECT s.*, a.area FROM account_staffs s LEFT JOIN areas a ON id = area_id WHERE role = ?", role)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -133,7 +133,7 @@ func StaffRoutes(r *gin.Engine, db *sqlx.DB) {
 
 		var staff dto.StaffModel
 
-		err := db.Get(&staff, "SELECT staff_id, firstname FROM staff_accounts WHERE staff_id = ?", id)
+		err := db.Get(&staff, "SELECT staff_id, firstname FROM account_staffs WHERE staff_id = ?", id)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -153,26 +153,28 @@ func StaffRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		insertStaff.Email = strings.ToLower(insertStaff.Email)
+		if role == "Agent" {
+			insertStaff.Email = strings.ToLower(insertStaff.Email)
 
-		exists, err := util.SatffEmailCheck(db, insertStaff.Email)
-		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check email: " + err.Error()})
-			return
-		}
+			exists, err := util.SatffEmailCheck(db, insertStaff.Email)
+			if err != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check email: " + err.Error()})
+				return
+			}
 
-		if exists {
-			ctx.JSON(http.StatusConflict, gin.H{"error": "Email already exists"})
-			return
+			if exists {
+				ctx.JSON(http.StatusConflict, gin.H{"error": "Email already exists"})
+				return
+			}
 		}
 
 		insertStaff.Role = role
 
 		insertQuery := `
-    		INSERT INTO staff_accounts (firstname, lastname, email, password, role, area_id) 
+    		INSERT INTO account_staffs (firstname, lastname, email, password, role, area_id) 
     		VALUES (:firstname, :lastname, :email, :password, :role, :area_id)`
 
-		_, err = db.NamedExec(insertQuery, insertStaff)
+		_, err := db.NamedExec(insertQuery, insertStaff)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save staff: " + err.Error()})
 			return
@@ -194,8 +196,13 @@ func StaffRoutes(r *gin.Engine, db *sqlx.DB) {
 		updateStaff.StaffId, _ = strconv.Atoi(staff_id)
 
 		updateQuery := `
-			UPDATE staff_accounts 
-			SET firstname = :firstname, lastname = :lastname, email = :email, password = :password
+			UPDATE account_staffs 
+			SET
+				firstname = :firstname,
+				lastname = :lastname,
+				email = :email,
+				password = :password,
+				area_id = :area_id
 			WHERE staff_id = :staff_id`
 
 		_, err := db.NamedExec(updateQuery, updateStaff)
@@ -210,7 +217,7 @@ func StaffRoutes(r *gin.Engine, db *sqlx.DB) {
 	r.DELETE("/v2/api/delete_staff/:staff_id", func(ctx *gin.Context) {
 		staff_id := ctx.Param("staff_id")
 
-		_, err := db.Exec("DELETE FROM staff_accounts WHERE staff_id = ?", staff_id)
+		_, err := db.Exec("DELETE FROM account_staffs WHERE staff_id = ?", staff_id)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete staff: " + err.Error()})
 			return

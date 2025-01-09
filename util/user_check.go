@@ -9,7 +9,7 @@ import (
 func ClientUsernameOrEmailCheck(db *sqlx.DB, username, email string) (bool, error) {
 	query := `
 		SELECT COUNT(*) 
-		FROM client_accounts 
+		FROM account_clients
 		WHERE username = ? OR email = ?
 	`
 	
@@ -26,7 +26,7 @@ func ClientUsernameOrEmailCheck(db *sqlx.DB, username, email string) (bool, erro
 func SatffEmailCheck(db *sqlx.DB, email string) (bool, error) {
 	query := `
 		SELECT COUNT(*) 
-		FROM staff_accounts 
+		FROM account_staffs 
 		WHERE email = ?
 	`
 	

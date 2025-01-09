@@ -76,7 +76,7 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 				content,
 				timestamp 
 			FROM messages m
-			LEFT JOIN client_accounts c ON m.sender_id = c.client_id
+			LEFT JOIN account_clients c ON m.sender_id = c.client_id
 			WHERE m.customer = ?
 			ORDER BY timestamp ASC`
 		
@@ -104,7 +104,7 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 				content,
 				timestamp 
 			FROM messages m
-			LEFT JOIN client_accounts c ON m.sender_id = c.client_id
+			LEFT JOIN account_clients c ON m.sender_id = c.client_id
 			WHERE m.area_id = ?
 			GROUP BY m.customer
 			ORDER BY timestamp DESC`
@@ -132,7 +132,7 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 				m.content,
 				m.timestamp
 			FROM messages m
-			LEFT JOIN client_accounts c ON m.sender_id = c.client_id
+			LEFT JOIN account_clients c ON m.sender_id = c.client_id
 			INNER JOIN (
 				SELECT customer, MAX(timestamp) AS latest_timestamp
 				FROM messages
