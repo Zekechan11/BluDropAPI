@@ -174,9 +174,15 @@ func StaffRoutes(r *gin.Engine, db *sqlx.DB) {
     		INSERT INTO account_staffs (firstname, lastname, email, password, role, area_id) 
     		VALUES (:firstname, :lastname, :email, :password, :role, :area_id)`
 
-		_, err := db.NamedExec(insertQuery, insertStaff)
+		result, err := db.NamedExec(insertQuery, insertStaff)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save staff: " + err.Error()})
+			return
+		}
+
+		insertStaff.StaffId, err = result.LastInsertId()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve inserted ID"})
 			return
 		}
 
