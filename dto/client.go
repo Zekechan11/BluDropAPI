@@ -1,6 +1,7 @@
 package dto
 
 type InsertClient struct {
+	ClientId  int64    `json:"client_id" db:"client_id"`
 	FirstName string `json:"firstname" db:"firstname"`
 	Lastname  string `json:"lastname" db:"lastname"`
 	Email     string `json:"email" db:"email"`

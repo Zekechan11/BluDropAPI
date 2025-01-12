@@ -60,9 +60,15 @@ func ClientRoutes(r *gin.Engine, db *sqlx.DB) {
     		INSERT INTO account_clients (firstname, lastname, email, username, password, area_id, role) 
     		VALUES (:firstname, :lastname, :email, :username, :password, :area_id, :role)`
 
-		_, err = db.NamedExec(insertQuery, insertClient)
+		result, err := db.NamedExec(insertQuery, insertClient)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save client: " + err.Error()})
+			return
+		}
+
+		insertClient.ClientId, err = result.LastInsertId()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve inserted ID"})
 			return
 		}
 
