@@ -2,6 +2,8 @@ package api
 
 import (
 	"net/http"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )
@@ -15,32 +17,48 @@ type Schedules struct {
 	Friday     bool `json:"friday" db:"friday"`
 }
 
+func getNextWeekday(current time.Time, weekday time.Weekday) time.Time {
+	// Calculate the date of the next occurrence of the specified weekday
+	offset := (int(weekday) - int(current.Weekday()) + 7) % 7
+	if offset == 0 {
+		offset = 7 // ensure it's next week, not today
+	}
+	return current.AddDate(0, 0, offset)
+}
+
 func ScheduleRoutes(r *gin.Engine, db *sqlx.DB) {
 	r.GET("/api/get_schedule", func(ctx *gin.Context) {
 		var schedule Schedules
 
+		// Replace with actual database query
 		err := db.Get(&schedule, "SELECT * FROM schedules")
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
-		var availableDays []string
+		var availableDays []gin.H
+		currentDate := time.Now()
 
 		if schedule.Monday {
-			availableDays = append(availableDays, "Monday")
+			nextMonday := getNextWeekday(currentDate, time.Monday)
+			availableDays = append(availableDays, gin.H{"day": "Monday", "date": nextMonday.Format("2006-01-02")})
 		}
 		if schedule.Tuesday {
-			availableDays = append(availableDays, "Tuesday")
+			nextTuesday := getNextWeekday(currentDate, time.Tuesday)
+			availableDays = append(availableDays, gin.H{"day": "Tuesday", "date": nextTuesday.Format("2006-01-02")})
 		}
 		if schedule.Wednesday {
-			availableDays = append(availableDays, "Wednesday")
+			nextWednesday := getNextWeekday(currentDate, time.Wednesday)
+			availableDays = append(availableDays, gin.H{"day": "Wednesday", "date": nextWednesday.Format("2006-01-02")})
 		}
 		if schedule.Thursday {
-			availableDays = append(availableDays, "Thursday")
+			nextThursday := getNextWeekday(currentDate, time.Thursday)
+			availableDays = append(availableDays, gin.H{"day": "Thursday", "date": nextThursday.Format("2006-01-02")})
 		}
 		if schedule.Friday {
-			availableDays = append(availableDays, "Friday")
+			nextFriday := getNextWeekday(currentDate, time.Friday)
+			availableDays = append(availableDays, gin.H{"day": "Friday", "date": nextFriday.Format("2006-01-02")})
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
