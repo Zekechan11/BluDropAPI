@@ -50,6 +50,7 @@ func main() {
 	api.CustomerRoutes(r, db)
 	api.TransactionRoutes(r, db)
 	api.ScheduleRoutes(r, db)
+	api.FGSRoutes(r, db)
 
 	r.Run(":9090")
 }
