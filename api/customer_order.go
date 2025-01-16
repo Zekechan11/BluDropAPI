@@ -13,8 +13,7 @@ import (
 type CustomerOrder struct {
 	ID                int     `db:"Id"`
 	CustomerID        int     `db:"customer_id"`
-	CustomerFirstName string  `db:"firstname"`
-	CustomerLastName  string  `db:"lastname"`
+	CustomerFullname string  `db:"fullname"`
 	Num_gallons_order int     `db:"num_gallons_order"`
 	Date              string  `db:"date"`
 	Date_created      string  `db:"date_created"`
@@ -29,8 +28,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			SELECT 
 				co.Id, 
 				co.customer_id, 
-				a.firstname, 
-				a.lastname, 
+				CONCAT(a.firstname, ' ', a.lastname) AS fullname
 				co.num_gallons_order, 
 				co.date, 
 				co.date_created,

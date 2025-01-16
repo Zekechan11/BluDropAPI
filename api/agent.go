@@ -50,6 +50,35 @@ func AgentRoutes(r *gin.Engine, db *sqlx.DB) {
 	ctx.JSON(http.StatusOK, gin.H{"data": fullname})
 	})
 
+	r.GET("/v2/api/agent/dashboard/:area_id", func(ctx *gin.Context) {
+		area_id := ctx.Param("area_id")
+
+		query := `
+			SELECT
+				count
+			FROM fgs
+			WHERE area_id = ?
+			LIMIT 1
+		`
+	var count string
+
+	err := db.Get(&count, query, area_id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "No agent found for the specified area"})
+		} else {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch agent: " + err.Error()})
+		}
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"data": count})
+	})
+
+
+
+
+	// DEAD ROUTES ------------------------------------>>
+
 	r.GET("/api/agents", func(ctx *gin.Context) {
 		query := `
 			SELECT id, firstname, lastname, email, area FROM accounts

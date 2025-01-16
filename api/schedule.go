@@ -62,12 +62,73 @@ func ScheduleRoutes(r *gin.Engine, db *sqlx.DB) {
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"schedule_id": schedule.ScheduleId,
 			"days":        availableDays,
 		})
 	})
 
-	r.PUT("/api/update_schedule", func(ctx *gin.Context) {
+	r.GET("/api/admin/get_schedule", func(ctx *gin.Context) {
+		var schedule Schedules
+	
+		err := db.Get(&schedule, "SELECT * FROM schedules")
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	
+		var availableDays []gin.H
+		currentDate := time.Now()
+	
+		{
+			nextMonday := getNextWeekday(currentDate, time.Monday)
+			availableDays = append(availableDays, gin.H{
+				"day":   "Monday",
+				"date":  nextMonday.Format("01-02-06"),
+				"type":  schedule.Monday,
+			})
+		}
+	
+		{
+			nextTuesday := getNextWeekday(currentDate, time.Tuesday)
+			availableDays = append(availableDays, gin.H{
+				"day":   "Tuesday",
+				"date":  nextTuesday.Format("01-02-06"),
+				"type":  schedule.Tuesday,
+			})
+		}
+	
+		{
+			nextWednesday := getNextWeekday(currentDate, time.Wednesday)
+			availableDays = append(availableDays, gin.H{
+				"day":   "Wednesday",
+				"date":  nextWednesday.Format("01-02-06"),
+				"type":  schedule.Wednesday,
+			})
+		}
+	
+		{
+			nextThursday := getNextWeekday(currentDate, time.Thursday)
+			availableDays = append(availableDays, gin.H{
+				"day":   "Thursday",
+				"date":  nextThursday.Format("01-02-06"),
+				"type":  schedule.Thursday,
+			})
+		}
+	
+		{
+			nextFriday := getNextWeekday(currentDate, time.Friday)
+			availableDays = append(availableDays, gin.H{
+				"day":   "Friday",
+				"date":  nextFriday.Format("01-02-06"),
+				"type":  schedule.Friday,
+			})
+		}
+
+		ctx.JSON(http.StatusOK, gin.H{
+			"days":        availableDays,
+		})
+	})	
+
+	r.PUT("/api/admin/update_schedule", func(ctx *gin.Context) {
 		var req Schedules
 
 		if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -82,11 +143,10 @@ func ScheduleRoutes(r *gin.Engine, db *sqlx.DB) {
 			    wednesday = :wednesday,
 			    thursday = :thursday,
 			    friday = :friday
-			WHERE schedule_id = :schedule_id
+			WHERE schedule_id = 1
 		`
 
 		params := map[string]interface{}{
-			"schedule_id": req.ScheduleId,
 			"monday":      req.Monday,
 			"tuesday":     req.Tuesday,
 			"wednesday":   req.Wednesday,
@@ -100,6 +160,9 @@ func ScheduleRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		ctx.JSON(http.StatusOK, gin.H{"message": "Schedule updated successfully"})
+		ctx.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "Schedule updated successfully",
+		})
 	})
 }
