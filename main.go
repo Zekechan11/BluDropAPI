@@ -51,6 +51,7 @@ func main() {
 	api.TransactionRoutes(r, db)
 	api.ScheduleRoutes(r, db)
 	api.FGSRoutes(r, db)
+	api.ContainerRoutes(r, db)
 
 	r.Run(":9090")
 }

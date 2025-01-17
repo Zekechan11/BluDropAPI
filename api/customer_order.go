@@ -3,7 +3,6 @@ package api
 import (
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -11,14 +10,14 @@ import (
 )
 
 type CustomerOrder struct {
-	ID                int     `db:"Id"`
-	CustomerID        int     `db:"customer_id"`
-	CustomerFullname string  `db:"fullname"`
-	Num_gallons_order int     `db:"num_gallons_order"`
-	Date              string  `db:"date"`
-	Date_created      string  `db:"date_created"`
-	Total_price       float64 `db:"total_price"`
-	Status            string  `db:"status"`
+	ID                int     `db:"Id" json:"id"`
+	CustomerID        int     `db:"customer_id" json:"customer_id"`
+	CustomerFullname  string  `db:"fullname" json:"customer_fullname"`
+	Num_gallons_order int     `db:"num_gallons_order" json:"num_gallons_order"`
+	Date              string  `db:"date" json:"date"`
+	Date_created      string  `db:"date_created" json:"date_created"`
+	Total_price       float64 `db:"total_price" json:"total_price"`
+	Status            string  `db:"status" json:"status"`
 }
 
 func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
@@ -28,7 +27,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			SELECT 
 				co.Id, 
 				co.customer_id, 
-				CONCAT(a.firstname, ' ', a.lastname) AS fullname
+				CONCAT(a.firstname, ' ', a.lastname) AS fullname,
 				co.num_gallons_order, 
 				co.date, 
 				co.date_created,
@@ -54,7 +53,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 		// Struct to bind JSON input
 		var insertCustomerOrder struct {
 			CustomerID        int `json:"customer_id"`
-			Num_gallons_order string `json:"num_gallons_order"`
+			NumGallonsOrder int `json:"num_gallons_order"`
 			Date              string `json:"date"`
 			Status            string `json:"status"`
 		}
@@ -81,17 +80,6 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		// Convert num_gallons_order to int
-		numGallons, err := strconv.Atoi(insertCustomerOrder.Num_gallons_order)
-		if err != nil {
-			log.Printf("Error converting num_gallons_order: %v", err)
-			ctx.JSON(http.StatusBadRequest, gin.H{
-				"error":   "Invalid number of gallons",
-				"details": err.Error(),
-			})
-			return
-		}
-
 		// Validate date
 		if insertCustomerOrder.Date == "" {
 			insertCustomerOrder.Date = time.Now().Format("2006-01-02")
@@ -105,7 +93,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			ORDER BY last_updated DESC 
 			LIMIT 1
 		`
-		err = db.Get(&totalPrice, getPriceQuery, numGallons)
+		err := db.Get(&totalPrice, getPriceQuery, insertCustomerOrder.NumGallonsOrder)
 		if err != nil {
 			log.Printf("Error calculating total price: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -141,7 +129,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 		// Execute the query
 		result, err := tx.Exec(insertQuery,
 			insertCustomerOrder.CustomerID,
-			numGallons,
+			insertCustomerOrder.NumGallonsOrder,
 			insertCustomerOrder.Date,
 			totalPrice,
 			insertCustomerOrder.Status,
@@ -180,7 +168,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 					LIMIT 1
 				)
 			`
-			_, err = tx.Exec(updateInventoryQuery, numGallons)
+			_, err = tx.Exec(updateInventoryQuery, insertCustomerOrder.NumGallonsOrder)
 			if err != nil {
 				log.Printf("Error updating inventory: %v", err)
 				ctx.JSON(http.StatusInternalServerError, gin.H{

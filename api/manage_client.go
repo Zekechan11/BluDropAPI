@@ -12,6 +12,23 @@ import (
 )
 
 func ClientRoutes(r *gin.Engine, db *sqlx.DB) {
+	r.GET("/v2/api/get_client/all", func(ctx *gin.Context) {
+
+		var client []dto.ClientModel
+
+		query := `
+			SELECT c.*, area FROM account_clients c
+			LEFT JOIN areas a ON a.id = c.area_id
+		`
+
+		err := db.Select(&client, query)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusOK, gin.H{"data": client})
+	})
+
 	r.GET("/v2/api/get_client/all/:status", func(ctx *gin.Context) {
 		status := ctx.Param("status")
 

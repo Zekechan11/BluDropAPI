@@ -15,6 +15,16 @@ type PaymentRequest struct {
 	GallonsReturned int     `json:"gallonsReturned"`
 }
 
+type ClientOrder struct {
+	TotalPrice float64 `db:"total_price"`
+	NumGallons int `db:"num_gallons_order"`
+}
+
+type COL struct {
+	ExistingRecord    int `db:"COUNT(*)"`
+	PreviousNumGallons int `db:"total_containers_on_loan"`
+}
+
 func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 	r.POST("/api/process-payment", func(ctx *gin.Context) {
 		var paymentReq PaymentRequest
@@ -41,12 +51,12 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 		}
 		defer tx.Rollback() // Rollback in case of any error
 
-		// Fetch the order to get total price
-		var totalPrice float64
-		getOrderQuery := `SELECT total_price FROM customer_order WHERE Id = ?`
-		err = tx.Get(&totalPrice, getOrderQuery, paymentReq.OrderID)
+		// Fetch the order
+		var clientOrder ClientOrder
+		getOrderQuery := `SELECT total_price, num_gallons_order FROM customer_order WHERE Id = ?`
+		err = tx.Get(&clientOrder, getOrderQuery, paymentReq.OrderID)
 		if err != nil {
-			log.Printf("Error fetching order total price: %v", err)
+			log.Printf("Error fetching order: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Failed to fetch order details",
 				"details": err.Error(),
@@ -55,25 +65,27 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 		}
 
 		// Check if payment amount matches total price
-		if paymentReq.AmountPaid < totalPrice {
-			ctx.JSON(http.StatusBadRequest, gin.H{
-				"error": "Insufficient payment amount",
-				"details": gin.H{
-					"totalPrice": totalPrice,
-					"amountPaid": paymentReq.AmountPaid,
-					"difference": totalPrice - paymentReq.AmountPaid,
-				},
-			})
-			return
-		}
+		// if paymentReq.AmountPaid < totalPrice {
+		// 	ctx.JSON(http.StatusBadRequest, gin.H{
+		// 		"error": "Insufficient payment amount",
+		// 		"details": gin.H{
+		// 			"totalPrice": totalPrice,
+		// 			"amountPaid": paymentReq.AmountPaid,
+		// 			"difference": totalPrice - paymentReq.AmountPaid,
+		// 		},
+		// 	})
+		// 	return
+		// }
 
 		// Update order status
 		updateOrderQuery := `
 			UPDATE customer_order 
-			SET status = 'Completed' 
+			SET
+				status = 'Completed',
+				payment = ?
 			WHERE Id = ?
 		`
-		_, err = tx.Exec(updateOrderQuery, paymentReq.OrderID)
+		_, err = tx.Exec(updateOrderQuery, paymentReq.AmountPaid, paymentReq.OrderID)
 		if err != nil {
 			log.Printf("Error updating order status: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -84,12 +96,13 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 		}
 
 		// Check if customer exists in containers_on_loan
-		var existingRecord int
+		var col COL
 		checkContainerQuery := `
-			SELECT COUNT(*) FROM containers_on_loan 
+			SELECT total_containers_on_loan, COUNT(*)
+			FROM containers_on_loan 
 			WHERE customer_id = ?
 		`
-		err = tx.Get(&existingRecord, checkContainerQuery, paymentReq.CustomerID)
+		err = tx.Get(&col, checkContainerQuery, paymentReq.CustomerID)
 		if err != nil {
 			log.Printf("Error checking existing containers: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -100,22 +113,7 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 		}
 
 		// If no existing record, insert new record
-		if existingRecord == 0 {
-			// Get the number of gallons ordered
-			var numGallons int
-			getGallonsQuery := `
-				SELECT num_gallons_order FROM customer_order 
-				WHERE Id = ?
-			`
-			err = tx.Get(&numGallons, getGallonsQuery, paymentReq.OrderID)
-			if err != nil {
-				log.Printf("Error fetching order gallons: %v", err)
-				ctx.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to fetch order gallons",
-					"details": err.Error(),
-				})
-				return
-			}
+		if col.ExistingRecord == 0 {
 
 			// Insert new record in containers_on_loan
 			insertContainerQuery := `
@@ -123,7 +121,7 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 				(customer_id, total_containers_on_loan, gallons_returned) 
 				VALUES (?, ?, 0)
 			`
-			_, err = tx.Exec(insertContainerQuery, paymentReq.CustomerID, numGallons)
+			_, err = tx.Exec(insertContainerQuery, paymentReq.CustomerID, clientOrder.NumGallons)
 			if err != nil {
 				log.Printf("Error inserting containers_on_loan: %v", err)
 				ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -134,12 +132,16 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 			}
 		} else {
 			// Update existing record with returned gallons
+			newNumGallons := col.PreviousNumGallons - paymentReq.GallonsReturned + clientOrder.NumGallons
+
 			updateContainersQuery := `
-				UPDATE containers_on_loan 
-				SET gallons_returned = gallons_returned + ? 
+				UPDATE containers_on_loan
+				SET
+					gallons_returned = ?,
+					total_containers_on_loan = ?
 				WHERE customer_id = ?
 			`
-			_, err = tx.Exec(updateContainersQuery, paymentReq.GallonsReturned, paymentReq.CustomerID)
+			_, err = tx.Exec(updateContainersQuery, paymentReq.GallonsReturned, newNumGallons, paymentReq.CustomerID)
 			if err != nil {
 				log.Printf("Error updating gallons returned: %v", err)
 				ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -166,7 +168,7 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 			"message":    "Payment processed successfully",
 			"orderId":    paymentReq.OrderID,
 			"amountPaid": paymentReq.AmountPaid,
-			"totalPrice": totalPrice,
+			"totalPrice": clientOrder.TotalPrice,
 			"status":     "Completed",
 		})
 	})
