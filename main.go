@@ -40,6 +40,7 @@ func main() {
 
 	api.AuthRoutes(r, db)
 	api.RegisterRoutes(r, db)
+	api.AdminRoutes(r, db)
 	api.AgentRoutes(r, db)
 	api.ChatRoutes(r, db)
 	api.InventoryRoutes(r, db)
@@ -51,7 +52,6 @@ func main() {
 	api.TransactionRoutes(r, db)
 	api.ScheduleRoutes(r, db)
 	api.FGSRoutes(r, db)
-	api.ContainerRoutes(r, db)
 
 	r.Run(":9090")
 }

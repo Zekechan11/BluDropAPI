@@ -56,6 +56,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			NumGallonsOrder int `json:"num_gallons_order"`
 			Date              string `json:"date"`
 			Status            string `json:"status"`
+			AreaID            int `json:"area_id"`
 		}
 
 		// Bind JSON and log any binding errors
@@ -123,8 +124,8 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 		// Prepare insert query for customer order
 		insertQuery := `
 			INSERT INTO customer_order 
-			(customer_id, num_gallons_order, date, date_created, total_price, status) 
-			VALUES (?, ?, ?, NOW(), ?, ?)`
+			(customer_id, num_gallons_order, date, date_created, total_price, status, area_id) 
+			VALUES (?, ?, ?, NOW(), ?, ?, ?)`
 
 		// Execute the query
 		result, err := tx.Exec(insertQuery,
@@ -133,6 +134,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			insertCustomerOrder.Date,
 			totalPrice,
 			insertCustomerOrder.Status,
+			insertCustomerOrder.AreaID,
 		)
 
 		if err != nil {

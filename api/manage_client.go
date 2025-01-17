@@ -17,8 +17,13 @@ func ClientRoutes(r *gin.Engine, db *sqlx.DB) {
 		var client []dto.ClientModel
 
 		query := `
-			SELECT c.*, area FROM account_clients c
+			SELECT
+				c.*,
+				a.area,
+				COALESCE(l.total_containers_on_loan, 0) AS total_containers_on_loan
+			FROM account_clients c
 			LEFT JOIN areas a ON a.id = c.area_id
+			LEFT JOIN containers_on_loan l ON l.customer_id = c.client_id
 		`
 
 		err := db.Select(&client, query)
@@ -35,7 +40,8 @@ func ClientRoutes(r *gin.Engine, db *sqlx.DB) {
 		var client []dto.ClientModel
 
 		query := `
-			SELECT c.*, area FROM account_clients c
+			SELECT c.*, area
+			FROM account_clients c
 			LEFT JOIN areas a ON a.id = c.area_id
 			WHERE status = ?
 		`

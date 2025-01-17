@@ -17,12 +17,13 @@ type PaymentRequest struct {
 
 type ClientOrder struct {
 	TotalPrice float64 `db:"total_price"`
-	NumGallons int `db:"num_gallons_order"`
+	NumGallons int     `db:"num_gallons_order"`
+	AreaID     int     `db:"area_id"`
 }
 
 type COL struct {
-	ExistingRecord    int `db:"COUNT(*)"`
-	PreviousNumGallons int `db:"total_containers_on_loan"`
+	ExistingRecord     int  `db:"COUNT(*)"`
+	PreviousNumGallons *int `db:"total_containers_on_loan"`
 }
 
 func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
@@ -53,7 +54,7 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 
 		// Fetch the order
 		var clientOrder ClientOrder
-		getOrderQuery := `SELECT total_price, num_gallons_order FROM customer_order WHERE Id = ?`
+		getOrderQuery := `SELECT total_price, num_gallons_order, area_id FROM customer_order WHERE Id = ?`
 		err = tx.Get(&clientOrder, getOrderQuery, paymentReq.OrderID)
 		if err != nil {
 			log.Printf("Error fetching order: %v", err)
@@ -64,28 +65,32 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		// Check if payment amount matches total price
-		// if paymentReq.AmountPaid < totalPrice {
-		// 	ctx.JSON(http.StatusBadRequest, gin.H{
-		// 		"error": "Insufficient payment amount",
-		// 		"details": gin.H{
-		// 			"totalPrice": totalPrice,
-		// 			"amountPaid": paymentReq.AmountPaid,
-		// 			"difference": totalPrice - paymentReq.AmountPaid,
-		// 		},
-		// 	})
-		// 	return
-		// }
+		// Update FGS Count
+		updateFGSQuery := `
+			UPDATE fgs
+			SET count = count - ?
+			WHERE area_id = ?
+		`
+		_, err = tx.Exec(updateFGSQuery, clientOrder.NumGallons, clientOrder.AreaID)
+		if err != nil {
+			log.Printf("Error updating fgs count: %v", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Failed to fgs count",
+				"details": err.Error(),
+			})
+			return
+		}
 
 		// Update order status
 		updateOrderQuery := `
 			UPDATE customer_order 
 			SET
 				status = 'Completed',
+				returned_gallons = ?,
 				payment = ?
-			WHERE Id = ?
+			WHERE id = ?
 		`
-		_, err = tx.Exec(updateOrderQuery, paymentReq.AmountPaid, paymentReq.OrderID)
+		_, err = tx.Exec(updateOrderQuery, paymentReq.GallonsReturned, paymentReq.AmountPaid, paymentReq.OrderID)
 		if err != nil {
 			log.Printf("Error updating order status: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -132,7 +137,14 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 			}
 		} else {
 			// Update existing record with returned gallons
-			newNumGallons := col.PreviousNumGallons - paymentReq.GallonsReturned + clientOrder.NumGallons
+			var previousNumGallons int
+			if col.PreviousNumGallons != nil {
+				previousNumGallons = *col.PreviousNumGallons
+			} else {
+				previousNumGallons = 0
+			}
+
+			newNumGallons := previousNumGallons - paymentReq.GallonsReturned + clientOrder.NumGallons
 
 			updateContainersQuery := `
 				UPDATE containers_on_loan
