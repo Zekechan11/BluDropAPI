@@ -14,19 +14,25 @@ import (
 func ClientRoutes(r *gin.Engine, db *sqlx.DB) {
 	r.GET("/v2/api/get_client/all", func(ctx *gin.Context) {
 
+		area_id := ctx.DefaultQuery("area_id", "")
+
 		var client []dto.ClientModel
 
 		query := `
 			SELECT
 				c.*,
 				a.area,
-				COALESCE(l.total_containers_on_loan, 0) AS total_containers_on_loan
+				COALESCE(l.total_containers_on_loan, 0) AS total_containers_on_loan,
+				COALESCE(SUM(o.total_price - o.payment), 0) AS total_payable
 			FROM account_clients c
 			LEFT JOIN areas a ON a.id = c.area_id
 			LEFT JOIN containers_on_loan l ON l.customer_id = c.client_id
+			LEFT JOIN customer_order o ON o.customer_id = c.client_id
+			WHERE (c.area_id = ? OR ? = '')
+			GROUP BY c.client_id, a.area
 		`
 
-		err := db.Select(&client, query)
+		err := db.Select(&client, query, area_id, area_id)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return

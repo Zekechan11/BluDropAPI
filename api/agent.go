@@ -24,9 +24,9 @@ type InsertAgent struct {
 }
 
 type DashboardCount struct {
-	Payment         float64 `db:"SUM(payment)"`
-	NumGallonsOrder int     `db:"SUM(num_gallons_order)"`
-	ReturnedGallons int     `db:"SUM(returned_gallons)"`
+	Payment         *float64 `db:"SUM(payment)"`
+	NumGallonsOrder *int     `db:"SUM(num_gallons_order)"`
+	ReturnedGallons *int     `db:"SUM(returned_gallons)"`
 }
 
 // RegisterAgentRoutes registers the Agent routes with the given router
@@ -66,7 +66,7 @@ func AgentRoutes(r *gin.Engine, db *sqlx.DB) {
 			WHERE area_id = ?
 			LIMIT 1
 		`
-		var count string
+		var count *string
 		err := db.Get(&count, query, area_id)
 		if err != nil {
 			if err == sql.ErrNoRows {
