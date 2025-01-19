@@ -13,32 +13,43 @@ type CustomerOrder struct {
 	ID                int     `db:"Id" json:"id"`
 	CustomerID        int     `db:"customer_id" json:"customer_id"`
 	CustomerFullname  string  `db:"fullname" json:"customer_fullname"`
+	AreaID            string  `db:"area_id" json:"area_id"`
 	Num_gallons_order int     `db:"num_gallons_order" json:"num_gallons_order"`
+	ReturnedGallons   int     `db:"returned_gallons" json:"returned_gallons"`
 	Date              string  `db:"date" json:"date"`
 	Date_created      string  `db:"date_created" json:"date_created"`
 	Total_price       float64 `db:"total_price" json:"total_price"`
+	Payment           float64 `db:"payment" json:"payment"`
 	Status            string  `db:"status" json:"status"`
 }
 
 func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 	r.GET("/api/get_order", func(ctx *gin.Context) {
+		area_id := ctx.DefaultQuery("area_id", "")
+		status := ctx.DefaultQuery("status", "")
+
 		var orders []CustomerOrder
 		query := `
 			SELECT 
 				co.Id, 
 				co.customer_id, 
 				CONCAT(a.firstname, ' ', a.lastname) AS fullname,
-				co.num_gallons_order, 
+				a.area_id,
+				co.num_gallons_order,
+				co.returned_gallons,
 				co.date, 
 				co.date_created,
 				co.total_price,
+				co.payment,
 				co.status
 			FROM 
 				customer_order co
 			LEFT JOIN 
 				account_clients a ON co.customer_id = a.client_id
+			WHERE (a.area_id = ? OR ? = '') 
+   				AND (co.status = ? OR ? = '')
 		`
-		err := db.Select(&orders, query)
+		err := db.Select(&orders, query, area_id, area_id, status, status)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -52,11 +63,11 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 
 		// Struct to bind JSON input
 		var insertCustomerOrder struct {
-			CustomerID        int `json:"customer_id"`
-			NumGallonsOrder int `json:"num_gallons_order"`
-			Date              string `json:"date"`
-			Status            string `json:"status"`
-			AreaID            int `json:"area_id"`
+			CustomerID      int    `json:"customer_id"`
+			NumGallonsOrder int    `json:"num_gallons_order"`
+			Date            string `json:"date"`
+			Status          string `json:"status"`
+			AreaID          int    `json:"area_id"`
 		}
 
 		// Bind JSON and log any binding errors
