@@ -1,12 +1,12 @@
 package dto
 
 type PricingModel struct {
-	PricingId int `db:"pricing_id" json:"pricing_id"`
-	Value float64 `db:"value" json:"value"`
-	Type string `db:"type" json:"type"`
+	PricingId int     `db:"pricing_id" json:"pricing_id"`
+	Dealer    float64 `db:"dealer" json:"dealer"`
+	Regular   float64  `db:"regular" json:"regular"`
 }
 
 type InsertPricing struct {
-	Value float64 `db:"value" json:"value"`
-	Type string `db:"type" json:"type"`
+	Dealer  float64 `db:"dealer" json:"dealer"`
+	Regular float64  `db:"regular" json:"regular"`
 }

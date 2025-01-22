@@ -7,6 +7,7 @@ type LoginData struct {
 	UserName  *string `db:"username"`
 	Area      *string `db:"area"`
 	AreaId    *string `db:"area_id"`
+	Type    *string `db:"type"`
 	Email     string  `db:"email"`
 	Role      string  `db:"role"`
 	Password  string  `db:"password"`
