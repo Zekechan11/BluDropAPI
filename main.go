@@ -53,6 +53,8 @@ func main() {
 	api.ScheduleRoutes(r, db)
 	api.FGSRoutes(r, db)
 	api.PricingRoutes(r, db)
-
+	api.SalesReportRoutes(r, db)
+	api.ManualOrderRoutes(r, db)
+	
 	r.Run(":9090")
 }

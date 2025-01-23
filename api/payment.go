@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 
+	"waterfalls/dto" // Import the dto package
+
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )
@@ -13,17 +15,6 @@ type PaymentRequest struct {
 	CustomerID      int     `json:"customerId"`
 	AmountPaid      float64 `json:"amountPaid"`
 	GallonsReturned int     `json:"gallonsReturned"`
-}
-
-type ClientOrder struct {
-	TotalPrice float64 `db:"total_price"`
-	NumGallons int     `db:"num_gallons_order"`
-	AreaID     int     `db:"area_id"`
-}
-
-type COL struct {
-	ExistingRecord     int  `db:"COUNT(*)"`
-	PreviousNumGallons *int `db:"total_containers_on_loan"`
 }
 
 func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
@@ -52,9 +43,9 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 		}
 		defer tx.Rollback() // Rollback in case of any error
 
-		// Fetch the order
-		var clientOrder ClientOrder
-		getOrderQuery := `SELECT total_price, num_gallons_order, area_id FROM customer_order WHERE Id = ?`
+		// Fetch the client order using the dto.ClientOrder structure
+		var clientOrder dto.ClientOrder
+		getOrderQuery := `SELECT total_price, num_gallons_order, area_id FROM customer_order WHERE customer_id = ?`
 		err = tx.Get(&clientOrder, getOrderQuery, paymentReq.OrderID)
 		if err != nil {
 			log.Printf("Error fetching order: %v", err)
@@ -65,23 +56,19 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		// Update FGS Count
-		updateFGSQuery := `
-			UPDATE fgs
-			SET count = count - ?
-			WHERE area_id = ?
-		`
+		// Update FGS Count using the area_id from the client order
+		updateFGSQuery := `UPDATE fgs SET count = count - ? WHERE area_id = ?`
 		_, err = tx.Exec(updateFGSQuery, clientOrder.NumGallons, clientOrder.AreaID)
 		if err != nil {
 			log.Printf("Error updating fgs count: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Failed to fgs count",
+				"error":   "Failed to update fgs count",
 				"details": err.Error(),
 			})
 			return
 		}
 
-		// Update order status
+		// Update order status and payment details using the PaymentRequest
 		updateOrderQuery := `
 			UPDATE customer_order 
 			SET
@@ -100,8 +87,8 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		// Check if customer exists in containers_on_loan
-		var col COL
+		// Check if customer exists in containers_on_loan table using the COL structure
+		var col dto.COL
 		checkContainerQuery := `
 			SELECT total_containers_on_loan, COUNT(*)
 			FROM containers_on_loan 
@@ -117,10 +104,9 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		// If no existing record, insert new record
+		// If no existing record, insert a new record into containers_on_loan
 		if col.ExistingRecord == 0 {
-
-			// Insert new record in containers_on_loan
+			// Insert a new record in containers_on_loan
 			insertContainerQuery := `
 				INSERT INTO containers_on_loan 
 				(customer_id, total_containers_on_loan, gallons_returned) 
@@ -136,7 +122,7 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 				return
 			}
 		} else {
-			// Update existing record with returned gallons
+			// Update the existing record with returned gallons
 			var previousNumGallons int
 			if col.PreviousNumGallons != nil {
 				previousNumGallons = *col.PreviousNumGallons
