@@ -3,6 +3,7 @@ package api
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"waterfalls/dto" // Import the dto package
 
@@ -41,55 +42,79 @@ func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			})
 			return
 		}
-		defer tx.Rollback() // Rollback in case of any error
+		defer tx.Rollback()
 
-		// Fetch the client order details using the new DTO
-		var clientOrder dto.ClientOrder
-		getOrderQuery := `SELECT total_price, num_gallons_order, area_id FROM customer_order WHERE Id = ?`
-		err = tx.Get(&clientOrder, getOrderQuery, orderReq.CustomerID)
-		if err != nil {
-			log.Printf("Error fetching order: %v", err)
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Failed to fetch order details",
-				"details": err.Error(),
-			})
-			return
-		}
-
-		// Update FGS count based on the fetched client order details
-		updateFGSQuery := `UPDATE fgs SET count = count - ? WHERE area_id = ?`
-		_, err = tx.Exec(updateFGSQuery, clientOrder.NumGallons, clientOrder.AreaID)
-		if err != nil {
-			log.Printf("Error updating FGS count: %v", err)
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Failed to update FGS count",
-				"details": err.Error(),
-			})
-			return
-		}
-
-		// Update the order status and other details
-		updateOrderQuery := `
-			UPDATE customer_order 
-			SET
-				status = 'Completed',
-				returned_gallons = ?,
-				payment = ?
-			WHERE id = ?
+		// Calculate total price
+		var totalPrice float64
+		getPriceQuery := `
+			SELECT price * ? 
+			FROM inventory_available 
+			ORDER BY last_updated DESC 
+			LIMIT 1
 		`
-		_, err = tx.Exec(updateOrderQuery, orderReq.GallonsToReturn, orderReq.Payment, orderReq.CustomerID)
+		err = tx.Get(&totalPrice, getPriceQuery, orderReq.GallonsToOrder)
 		if err != nil {
-			log.Printf("Error updating order status: %v", err)
+			log.Printf("Error calculating total price: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Failed to update order status",
+				"error":   "Failed to calculate price",
 				"details": err.Error(),
 			})
 			return
 		}
 
-		// Check if the customer exists in the containers_on_loan table
+		// Insert into customer_order
+		insertOrderQuery := `
+		INSERT INTO customer_order 
+		(customer_id, num_gallons_order, date, date_created, total_price, payment, returned_gallons, status, area_id) 
+		VALUES (?, ?, ?, NOW(), ?, ?, ?, 'Completed', 
+			(SELECT area_id FROM account_clients WHERE client_id = ?))
+		`
+		_, err = tx.Exec(
+			insertOrderQuery,
+			orderReq.CustomerID,
+			orderReq.GallonsToOrder,
+			time.Now().Format("2006-01-02"),
+			totalPrice,
+			orderReq.Payment,
+			orderReq.GallonsToReturn,
+			orderReq.CustomerID,
+		)
+		if err != nil {
+			log.Printf("Error inserting order: %v", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Failed to insert order",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		// Update FGS Count
+		updateFGSQuery := `
+			UPDATE fgs 
+			SET count = count - ? 
+			WHERE area_id = (
+				SELECT area_id 
+				FROM account_clients 
+				WHERE client_id = ?
+			)
+		`
+		_, err = tx.Exec(updateFGSQuery, orderReq.GallonsToOrder, orderReq.CustomerID)
+		if err != nil {
+			log.Printf("Error updating fgs count: %v", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Failed to update fgs count",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		// Handle containers_on_loan similarly to previous implementation
 		var col dto.COL
-		checkContainerQuery := `SELECT total_containers_on_loan, COUNT(*) FROM containers_on_loan WHERE customer_id = ?`
+		checkContainerQuery := `
+			SELECT total_containers_on_loan, COUNT(*) 
+			FROM containers_on_loan 
+			WHERE customer_id = ?
+		`
 		err = tx.Get(&col, checkContainerQuery, orderReq.CustomerID)
 		if err != nil {
 			log.Printf("Error checking containers on loan: %v", err)
@@ -100,7 +125,6 @@ func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		// If no existing record, insert a new record into containers_on_loan
 		if col.ExistingRecord == 0 {
 			insertContainerQuery := `
 				INSERT INTO containers_on_loan 
@@ -117,12 +141,9 @@ func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
 				return
 			}
 		} else {
-			// Update the existing record with the new number of containers on loan
 			var previousNumGallons int
 			if col.PreviousNumGallons != nil {
 				previousNumGallons = *col.PreviousNumGallons
-			} else {
-				previousNumGallons = 0
 			}
 
 			newNumGallons := previousNumGallons - orderReq.GallonsToReturn + orderReq.GallonsToOrder
@@ -156,12 +177,12 @@ func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		// Respond with success message
+		// Successful response
 		ctx.JSON(http.StatusOK, gin.H{
 			"message":    "Manual order processed successfully",
 			"customerId": orderReq.CustomerID,
 			"payment":    orderReq.Payment,
-			"totalPrice": clientOrder.TotalPrice,
+			"totalPrice": totalPrice,
 			"status":     "Completed",
 		})
 	})
