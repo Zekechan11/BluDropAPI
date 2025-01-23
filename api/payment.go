@@ -45,7 +45,7 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 
 		// Fetch the client order using the dto.ClientOrder structure
 		var clientOrder dto.ClientOrder
-		getOrderQuery := `SELECT total_price, num_gallons_order, area_id FROM customer_order WHERE customer_id = ?`
+		getOrderQuery := `SELECT total_price, num_gallons_order, area_id FROM customer_order WHERE Id = ?`
 		err = tx.Get(&clientOrder, getOrderQuery, paymentReq.OrderID)
 		if err != nil {
 			log.Printf("Error fetching order: %v", err)
