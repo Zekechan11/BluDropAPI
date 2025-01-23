@@ -10,19 +10,19 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type PaymentRequest struct {
-	OrderID         int     `json:"orderId"`
+type ManualOrderRequest struct {
 	CustomerID      int     `json:"customerId"`
-	AmountPaid      float64 `json:"amountPaid"`
-	GallonsReturned int     `json:"gallonsReturned"`
+	GallonsToOrder  int     `json:"gallonsToOrder"`
+	Payment         float64 `json:"payment"`
+	GallonsToReturn int     `json:"gallonsToReturn"`
 }
 
-func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
-	r.POST("/api/process-payment", func(ctx *gin.Context) {
-		var paymentReq PaymentRequest
+func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
+	r.POST("/api/process-manual-order", func(ctx *gin.Context) {
+		var orderReq ManualOrderRequest
 
 		// Bind JSON input
-		if err := ctx.ShouldBindJSON(&paymentReq); err != nil {
+		if err := ctx.ShouldBindJSON(&orderReq); err != nil {
 			log.Printf("JSON Binding Error: %v", err)
 			ctx.JSON(http.StatusBadRequest, gin.H{
 				"error":   "Invalid input",
@@ -43,10 +43,10 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 		}
 		defer tx.Rollback() // Rollback in case of any error
 
-		// Fetch the client order using the dto.ClientOrder structure
+		// Fetch the client order details using the new DTO
 		var clientOrder dto.ClientOrder
-		getOrderQuery := `SELECT total_price, num_gallons_order, area_id FROM customer_order WHERE customer_id = ?`
-		err = tx.Get(&clientOrder, getOrderQuery, paymentReq.OrderID)
+		getOrderQuery := `SELECT total_price, num_gallons_order, area_id FROM customer_order WHERE Id = ?`
+		err = tx.Get(&clientOrder, getOrderQuery, orderReq.CustomerID)
 		if err != nil {
 			log.Printf("Error fetching order: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -56,19 +56,19 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		// Update FGS Count using the area_id from the client order
+		// Update FGS count based on the fetched client order details
 		updateFGSQuery := `UPDATE fgs SET count = count - ? WHERE area_id = ?`
 		_, err = tx.Exec(updateFGSQuery, clientOrder.NumGallons, clientOrder.AreaID)
 		if err != nil {
-			log.Printf("Error updating fgs count: %v", err)
+			log.Printf("Error updating FGS count: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Failed to update fgs count",
+				"error":   "Failed to update FGS count",
 				"details": err.Error(),
 			})
 			return
 		}
 
-		// Update order status and payment details using the PaymentRequest
+		// Update the order status and other details
 		updateOrderQuery := `
 			UPDATE customer_order 
 			SET
@@ -77,7 +77,7 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 				payment = ?
 			WHERE id = ?
 		`
-		_, err = tx.Exec(updateOrderQuery, paymentReq.GallonsReturned, paymentReq.AmountPaid, paymentReq.OrderID)
+		_, err = tx.Exec(updateOrderQuery, orderReq.GallonsToReturn, orderReq.Payment, orderReq.CustomerID)
 		if err != nil {
 			log.Printf("Error updating order status: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -87,16 +87,12 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		// Check if customer exists in containers_on_loan table using the COL structure
+		// Check if the customer exists in the containers_on_loan table
 		var col dto.COL
-		checkContainerQuery := `
-			SELECT total_containers_on_loan, COUNT(*)
-			FROM containers_on_loan 
-			WHERE customer_id = ?
-		`
-		err = tx.Get(&col, checkContainerQuery, paymentReq.CustomerID)
+		checkContainerQuery := `SELECT total_containers_on_loan, COUNT(*) FROM containers_on_loan WHERE customer_id = ?`
+		err = tx.Get(&col, checkContainerQuery, orderReq.CustomerID)
 		if err != nil {
-			log.Printf("Error checking existing containers: %v", err)
+			log.Printf("Error checking containers on loan: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Failed to check containers",
 				"details": err.Error(),
@@ -106,13 +102,12 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 
 		// If no existing record, insert a new record into containers_on_loan
 		if col.ExistingRecord == 0 {
-			// Insert a new record in containers_on_loan
 			insertContainerQuery := `
 				INSERT INTO containers_on_loan 
 				(customer_id, total_containers_on_loan, gallons_returned) 
 				VALUES (?, ?, 0)
 			`
-			_, err = tx.Exec(insertContainerQuery, paymentReq.CustomerID, clientOrder.NumGallons)
+			_, err = tx.Exec(insertContainerQuery, orderReq.CustomerID, orderReq.GallonsToOrder)
 			if err != nil {
 				log.Printf("Error inserting containers_on_loan: %v", err)
 				ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -122,7 +117,7 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 				return
 			}
 		} else {
-			// Update the existing record with returned gallons
+			// Update the existing record with the new number of containers on loan
 			var previousNumGallons int
 			if col.PreviousNumGallons != nil {
 				previousNumGallons = *col.PreviousNumGallons
@@ -130,7 +125,7 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 				previousNumGallons = 0
 			}
 
-			newNumGallons := previousNumGallons - paymentReq.GallonsReturned + clientOrder.NumGallons
+			newNumGallons := previousNumGallons - orderReq.GallonsToReturn + orderReq.GallonsToOrder
 
 			updateContainersQuery := `
 				UPDATE containers_on_loan
@@ -139,11 +134,11 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 					total_containers_on_loan = ?
 				WHERE customer_id = ?
 			`
-			_, err = tx.Exec(updateContainersQuery, paymentReq.GallonsReturned, newNumGallons, paymentReq.CustomerID)
+			_, err = tx.Exec(updateContainersQuery, orderReq.GallonsToReturn, newNumGallons, orderReq.CustomerID)
 			if err != nil {
-				log.Printf("Error updating gallons returned: %v", err)
+				log.Printf("Error updating containers on loan: %v", err)
 				ctx.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to update gallons returned",
+					"error":   "Failed to update containers on loan",
 					"details": err.Error(),
 				})
 				return
@@ -155,17 +150,17 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 		if err != nil {
 			log.Printf("Error committing transaction: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Failed to process payment",
+				"error":   "Failed to process order",
 				"details": err.Error(),
 			})
 			return
 		}
 
-		// Successful response
+		// Respond with success message
 		ctx.JSON(http.StatusOK, gin.H{
-			"message":    "Payment processed successfully",
-			"orderId":    paymentReq.OrderID,
-			"amountPaid": paymentReq.AmountPaid,
+			"message":    "Manual order processed successfully",
+			"customerId": orderReq.CustomerID,
+			"payment":    orderReq.Payment,
 			"totalPrice": clientOrder.TotalPrice,
 			"status":     "Completed",
 		})
