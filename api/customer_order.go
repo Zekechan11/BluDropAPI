@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -68,6 +69,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			Date            string `json:"date"`
 			Status          string `json:"status"`
 			AreaID          int    `json:"area_id"`
+			Type            string `json:"type"`
 		}
 
 		// Bind JSON and log any binding errors
@@ -99,12 +101,11 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 
 		// Calculate total price based on inventory price
 		var totalPrice float64
-		getPriceQuery := `
-			SELECT price * ? 
-			FROM inventory_available 
-			ORDER BY last_updated DESC 
-			LIMIT 1
-		`
+		getPriceQuery := fmt.Sprintf(`
+			SELECT %s * ? 
+			FROM pricing
+			WHERE pricing_id = 1
+		`, insertCustomerOrder.Type)
 		err := db.Get(&totalPrice, getPriceQuery, insertCustomerOrder.NumGallonsOrder)
 		if err != nil {
 			log.Printf("Error calculating total price: %v", err)

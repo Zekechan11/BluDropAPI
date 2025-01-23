@@ -220,6 +220,33 @@ func StaffRoutes(r *gin.Engine, db *sqlx.DB) {
 		ctx.JSON(http.StatusOK, gin.H{"message": "Staff updated successfully", "data": updateStaff})
 	})
 
+	r.PUT("/v2/api/update_staff/area/:staff_id", func(ctx *gin.Context) {
+		
+		var updateStaff dto.StaffModel
+
+		if err := ctx.ShouldBindJSON(&updateStaff); err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		staff_id := ctx.Param("staff_id")
+		updateStaff.StaffId, _ = strconv.Atoi(staff_id)
+
+		updateQuery := `
+			UPDATE account_staffs 
+			SET
+				area_id = :area_id
+			WHERE staff_id = :staff_id`
+
+		_, err := db.NamedExec(updateQuery, updateStaff)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update staff area: " + err.Error()})
+			return
+		}
+
+		ctx.JSON(http.StatusOK, gin.H{"message": "Staff area updated successfully", "data": updateStaff})
+	})
+
 	r.DELETE("/v2/api/delete_staff/:staff_id", func(ctx *gin.Context) {
 		staff_id := ctx.Param("staff_id")
 
