@@ -17,11 +17,15 @@ type CustomerOrder struct {
 	AreaID            string  `db:"area_id" json:"area_id"`
 	Num_gallons_order int     `db:"num_gallons_order" json:"num_gallons_order"`
 	ReturnedGallons   int     `db:"returned_gallons" json:"returned_gallons"`
+	COL 			  *int	  `db:"col" json:"col"`
+	TotalCOL		  *int	  `db:"total_containers_on_loan" json:"total_containers_on_loan"`
 	Date              string  `db:"date" json:"date"`
 	Date_created      string  `db:"date_created" json:"date_created"`
 	Total_price       float64 `db:"total_price" json:"total_price"`
 	Payment           float64 `db:"payment" json:"payment"`
+	PayableAmount	  *float64 `db:"payable_amount" json:"payable_amount"`
 	Status            string  `db:"status" json:"status"`
+	Agent			  *string  `db:"agent" json:"agent"`
 }
 
 func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
@@ -38,16 +42,26 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 				a.area_id,
 				co.num_gallons_order,
 				co.returned_gallons,
+				(co.num_gallons_order - co.returned_gallons) AS col,
+				lo.total_containers_on_loan,
 				co.date, 
 				co.date_created,
 				co.total_price,
 				co.payment,
-				co.status
+				(co.total_price - co.payment) AS payable_amount,
+				co.status,
+				CONCAT(s.firstname, ' ', s.lastname) AS agent
 			FROM 
 				customer_order co
 			LEFT JOIN 
 				account_clients a ON co.customer_id = a.client_id
-			WHERE (a.area_id = ? OR ? = '') 
+			LEFT JOIN
+				account_staffs s ON co.area_id = s.area_id
+			LEFT JOIN
+				containers_on_loan lo ON co.customer_id = lo.customer_id
+			WHERE
+				s.role = 'Agent'
+				AND (a.area_id = ? OR ? = '')
    				AND (co.status = ? OR ? = '')
 		`
 		err := db.Select(&orders, query, area_id, area_id, status, status)
