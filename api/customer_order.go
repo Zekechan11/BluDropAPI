@@ -48,7 +48,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 				co.date_created,
 				co.total_price,
 				co.payment,
-				(co.total_price - co.payment) AS payable_amount,
+				total_sum.total_payable_amount AS payable_amount,
 				co.status,
 				CONCAT(s.firstname, ' ', s.lastname) AS agent
 			FROM 
@@ -59,10 +59,31 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 				account_staffs s ON co.area_id = s.area_id
 			LEFT JOIN
 				containers_on_loan lo ON co.customer_id = lo.customer_id
+			LEFT JOIN 
+				(
+					SELECT SUM(co.total_price - co.payment) AS total_payable_amount
+					FROM customer_order co
+				) total_sum ON 1=1
 			WHERE
 				s.role = 'Agent'
 				AND (a.area_id = ? OR ? = '')
    				AND (co.status = ? OR ? = '')
+			GROUP BY 
+				co.Id, 
+				co.customer_id, 
+				a.firstname, 
+				a.lastname, 
+				a.area_id, 
+				co.num_gallons_order,
+				co.returned_gallons,
+				lo.total_containers_on_loan,
+				co.date, 
+				co.date_created,
+				co.total_price,
+				co.payment,
+				co.status,
+				s.firstname, 
+				s.lastname
 		`
 		err := db.Select(&orders, query, area_id, area_id, status, status)
 		if err != nil {
