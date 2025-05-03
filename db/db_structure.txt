@@ -1,0 +1,71 @@
+account_clients:
+    client_id
+    firstname 
+    lastname 
+    email 
+    username 
+    password 
+    area_id 
+    role 
+    status
+    type 
+    created
+
+account_staffs:
+    staff_id
+    firstname 
+    lastname 
+    email 
+    password 
+    area_id
+    role 
+    created 
+
+areas:
+    id
+    area
+
+containers_on_loan:
+    containers_on_loan_id
+    customer_id
+    total_containers_on_loan
+    gallons_returned
+
+customer_order:
+    id
+    num_gallons_order 
+    returned_gallons 
+    date 
+    date_created
+    customer_id
+    total_price
+    payment 
+    status
+    area_id
+
+fgs: 
+    fgs_id
+    area_id
+    count
+
+inventory_available: 
+    inventory_id
+    total_quantity
+    price 
+    last_updated
+
+messages: 
+    message_id
+    sender_id 
+    area_id 
+    customer 
+    content 
+    timestamp
+
+schedules:
+    schedule_id
+    monday 
+    tuesday
+    wednesday 
+    thursday 
+    friday
