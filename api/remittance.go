@@ -72,7 +72,7 @@ func RegisterRemittanceRoutes(r *gin.Engine, db *sqlx.DB) {
 	// Get all remittances with agent and area details
 	r.GET("/v2/api/get_remittances", func(ctx *gin.Context) {
 		var remittances []RemittanceWithDetails
-	
+
 		query := `
 			SELECT 
 				r.*,
@@ -87,35 +87,35 @@ func RegisterRemittanceRoutes(r *gin.Engine, db *sqlx.DB) {
 				areas a ON r.area_id = a.id
 			ORDER BY 
 				r.date DESC`
-	
+
 		err := db.Select(&remittances, query)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-	
+
 		// Transform the data to include full agent name
 		result := make([]map[string]interface{}, len(remittances))
 		for i, rem := range remittances {
 			result[i] = map[string]interface{}{
 				"id":               rem.ID,
 				"date":             rem.Date,
-				"agent_id":        rem.AgentID,
-				"agent_name":      fmt.Sprintf("%s %s", rem.FirstName, rem.LastName),
-				"area_id":         rem.AreaID,
-				"area_name":       rem.AreaName,
+				"agent_id":         rem.AgentID,
+				"agent_name":       fmt.Sprintf("%s %s", rem.FirstName, rem.LastName),
+				"area_id":          rem.AreaID,
+				"area_name":        rem.AreaName,
 				"gallons_loaded":   rem.GallonsLoaded,
 				"gallons_sold":     rem.GallonsSold,
 				"gallons_credited": rem.GallonsCredited,
 				"empty_returns":    rem.EmptyReturns,
 				"loan_payments":    rem.LoanPayments,
-				"new_loans":       rem.NewLoans,
+				"new_loans":        rem.NewLoans,
 				"amount_collected": rem.AmountCollected,
-				"expected_amount": rem.ExpectedAmount,
-				"status":          rem.Status,
+				"expected_amount":  rem.ExpectedAmount,
+				"status":           rem.Status,
 			}
 		}
-	
+
 		ctx.JSON(http.StatusOK, result)
 	})
 
@@ -128,15 +128,16 @@ func RegisterRemittanceRoutes(r *gin.Engine, db *sqlx.DB) {
 
 		query := `
 		SELECT 
-			r.*, 
-			a.agent_name,
-			ar.area
+			r.*,
+			s.firstname,
+			s.lastname,
+			a.area
 		FROM 
 			remittances r
 		JOIN 
-			agents a ON r.agent_id = a.Id
+			account_staffs s ON r.agent_id = s.staff_id
 		JOIN 
-			areas ar ON r.area_id = ar.id
+			areas a ON r.area_id = a.id
 		WHERE 
 			r.date BETWEEN ? AND ?
 		ORDER BY 
@@ -148,15 +149,37 @@ func RegisterRemittanceRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		ctx.JSON(http.StatusOK, remittances)
+		// Transform the data to include full agent name
+		result := make([]map[string]interface{}, len(remittances))
+		for i, rem := range remittances {
+			result[i] = map[string]interface{}{
+				"id":               rem.ID,
+				"date":             rem.Date,
+				"agent_id":         rem.AgentID,
+				"agent_name":       fmt.Sprintf("%s %s", rem.FirstName, rem.LastName),
+				"area_id":          rem.AreaID,
+				"area":             rem.AreaName,
+				"gallons_loaded":   rem.GallonsLoaded,
+				"gallons_sold":     rem.GallonsSold,
+				"gallons_credited": rem.GallonsCredited,
+				"empty_returns":    rem.EmptyReturns,
+				"loan_payments":    rem.LoanPayments,
+				"new_loans":        rem.NewLoans,
+				"amount_collected": rem.AmountCollected,
+				"expected_amount":  rem.ExpectedAmount,
+				"status":           rem.Status,
+			}
+		}
+
+		ctx.JSON(http.StatusOK, result)
 	})
 
 	// Get remittances for today
 	r.GET("/v2/api/get_todays_remittances", func(ctx *gin.Context) {
 		today := time.Now().Format("2006-01-02")
-	
+
 		var remittances []RemittanceWithDetails
-	
+
 		query := `
 			SELECT 
 				r.*,
@@ -173,27 +196,27 @@ func RegisterRemittanceRoutes(r *gin.Engine, db *sqlx.DB) {
 				r.date = ?
 			ORDER BY 
 				r.id DESC`
-	
+
 		err := db.Select(&remittances, query, today)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-	
+
 		// Transform the data as above
 		result := make([]map[string]interface{}, len(remittances))
 		for i, rem := range remittances {
 			result[i] = map[string]interface{}{
-				"id":               rem.ID,
-				"date":             rem.Date,
-				"agent_id":        rem.AgentID,
-				"agent_name":      fmt.Sprintf("%s %s", rem.FirstName, rem.LastName),
-				"area_id":         rem.AreaID,
-				"area_name":       rem.AreaName,
+				"id":         rem.ID,
+				"date":       rem.Date,
+				"agent_id":   rem.AgentID,
+				"agent_name": fmt.Sprintf("%s %s", rem.FirstName, rem.LastName),
+				"area_id":    rem.AreaID,
+				"area_name":  rem.AreaName,
 				// ... other fields
 			}
 		}
-	
+
 		ctx.JSON(http.StatusOK, result)
 	})
 
