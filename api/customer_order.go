@@ -26,6 +26,7 @@ type CustomerOrder struct {
 	PayableAmount	  *float64 `db:"payable_amount" json:"payable_amount"`
 	Status            string  `db:"status" json:"status"`
 	Agent			  *string  `db:"agent" json:"agent"`
+	Area			  *string  `db:"area" json:"area"`
 }
 
 func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
@@ -50,7 +51,8 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 				co.payment,
 				total_sum.total_payable_amount AS payable_amount,
 				co.status,
-				CONCAT(s.firstname, ' ', s.lastname) AS agent
+				CONCAT(s.firstname, ' ', s.lastname) AS agent,
+				ar.area
 			FROM 
 				customer_order co
 			LEFT JOIN 
@@ -59,6 +61,8 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 				account_staffs s ON co.area_id = s.area_id
 			LEFT JOIN
 				containers_on_loan lo ON co.customer_id = lo.customer_id
+			LEFT JOIN
+				areas ar ON co.area_id = ar.id
 			LEFT JOIN 
 				(
 					SELECT SUM(co.total_price - co.payment) AS total_payable_amount
@@ -73,7 +77,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 				co.customer_id, 
 				a.firstname, 
 				a.lastname, 
-				a.area_id, 
+				a.area_id,
 				co.num_gallons_order,
 				co.returned_gallons,
 				lo.total_containers_on_loan,
@@ -83,7 +87,8 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 				co.payment,
 				co.status,
 				s.firstname, 
-				s.lastname
+				s.lastname,
+				ar.area
 		`
 		err := db.Select(&orders, query, area_id, area_id, status, status)
 		if err != nil {
