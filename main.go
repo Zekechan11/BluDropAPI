@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"waterfalls/api"
 
 	"github.com/gin-contrib/cors"
@@ -12,7 +13,8 @@ import (
 )
 
 func main() {
-	dsn := "root@tcp(localhost:3306)/waterfalls"
+	dsn := os.Getenv("DATABASE_URL")
+	// dsn := "root@tcp(localhost:3306)/waterfalls"
 	db, err := sqlx.Open("mysql", dsn)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)

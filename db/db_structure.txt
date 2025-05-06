@@ -71,16 +71,16 @@ schedules:
     friday
 
 remittances:
-id
-date
-agent_id
-area_id
-gallons_loaded
-gallons_sold
-gallons_credited
-empty_returns
-loan_payments
-new_loans
-amount_collected
-expected_amount
-status
+    id
+    date
+    agent_id
+    area_id
+    gallons_loaded
+    gallons_sold
+    gallons_credited
+    empty_returns
+    loan_payments
+    new_loans
+    amount_collected
+    expected_amount
+    status
