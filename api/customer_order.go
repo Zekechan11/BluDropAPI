@@ -49,7 +49,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 				co.date_created,
 				co.total_price,
 				co.payment,
-				total_sum.total_payable_amount AS payable_amount,
+				SUM(co.total_price - co.payment) OVER () AS payable_amount,
 				co.status,
 				CONCAT(s.firstname, ' ', s.lastname) AS agent,
 				ar.area
@@ -63,15 +63,10 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 				containers_on_loan lo ON co.customer_id = lo.customer_id
 			LEFT JOIN
 				areas ar ON co.area_id = ar.id
-			LEFT JOIN 
-				(
-					SELECT SUM(co.total_price - co.payment) AS total_payable_amount
-					FROM customer_order co
-				) total_sum ON 1=1
 			WHERE
 				s.role = 'Agent'
 				AND (a.area_id = ? OR ? = '')
-   				AND (co.status = ? OR ? = '')
+				AND (co.status = ? OR ? = '')
 			GROUP BY 
 				co.Id, 
 				co.customer_id, 
@@ -212,15 +207,13 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 		// If status is Pending, subtract from inventory
 		if insertCustomerOrder.Status == "Pending" {
 			updateInventoryQuery := `
-				UPDATE inventory_available 
-				SET total_quantity = total_quantity - ?, 
-				    last_updated = NOW()
-				WHERE inventory_id = (
+				UPDATE inventory_available
+				JOIN (
 					SELECT inventory_id 
-					FROM inventory_available 
-					ORDER BY last_updated DESC 
-					LIMIT 1
-				)
+					FROM (SELECT inventory_id FROM inventory_available ORDER BY last_updated DESC LIMIT 1) AS tmp
+				) AS sub ON inventory_available.inventory_id = sub.inventory_id
+				SET inventory_available.total_quantity = inventory_available.total_quantity - ?, 
+					inventory_available.last_updated = NOW()
 			`
 			_, err = tx.Exec(updateInventoryQuery, insertCustomerOrder.NumGallonsOrder)
 			if err != nil {
