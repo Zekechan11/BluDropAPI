@@ -1,11 +1,11 @@
 package api
 
 import (
+	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
-
-	"waterfalls/dto" // Import the dto package
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -16,6 +16,7 @@ type ManualOrderRequest struct {
 	GallonsToOrder  int     `json:"gallonsToOrder"`
 	Payment         float64 `json:"payment"`
 	GallonsToReturn int     `json:"gallonsToReturn"`
+	Type            string `json:"type"`
 }
 
 func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
@@ -46,12 +47,11 @@ func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
 
 		// Calculate total price
 		var totalPrice float64
-		getPriceQuery := `
-			SELECT price * ? 
-			FROM inventory_available 
-			ORDER BY last_updated DESC 
-			LIMIT 1
-		`
+		getPriceQuery := fmt.Sprintf(`
+			SELECT %s * ? 
+			FROM pricing
+			WHERE pricing_id = 1
+		`, orderReq.Type)
 		err = tx.Get(&totalPrice, getPriceQuery, orderReq.GallonsToOrder)
 		if err != nil {
 			log.Printf("Error calculating total price: %v", err)
@@ -109,44 +109,43 @@ func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
 		}
 
 		// Handle containers_on_loan similarly to previous implementation
-		var col dto.COL
+		var previousGallons int
 		checkContainerQuery := `
-			SELECT total_containers_on_loan, COUNT(*) 
+			SELECT total_containers_on_loan 
 			FROM containers_on_loan 
 			WHERE customer_id = ?
+			LIMIT 1
 		`
-		err = tx.Get(&col, checkContainerQuery, orderReq.CustomerID)
-		if err != nil {
-			log.Printf("Error checking containers on loan: %v", err)
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Failed to check containers",
-				"details": err.Error(),
-			})
-			return
-		}
+		err = tx.Get(&previousGallons, checkContainerQuery, orderReq.CustomerID)
 
-		if col.ExistingRecord == 0 {
-			insertContainerQuery := `
-				INSERT INTO containers_on_loan 
-				(customer_id, total_containers_on_loan, gallons_returned) 
-				VALUES (?, ?, 0)
-			`
-			_, err = tx.Exec(insertContainerQuery, orderReq.CustomerID, orderReq.GallonsToOrder)
-			if err != nil {
-				log.Printf("Error inserting containers_on_loan: %v", err)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				// No existing record, insert new
+				insertContainerQuery := `
+					INSERT INTO containers_on_loan 
+					(customer_id, total_containers_on_loan, gallons_returned) 
+					VALUES (?, ?, 0)
+				`
+				_, err = tx.Exec(insertContainerQuery, orderReq.CustomerID, orderReq.GallonsToOrder)
+				if err != nil {
+					log.Printf("Error inserting containers_on_loan: %v", err)
+					ctx.JSON(http.StatusInternalServerError, gin.H{
+						"error":   "Failed to record containers on loan",
+						"details": err.Error(),
+					})
+					return
+				}
+			} else {
+				log.Printf("Error checking containers on loan: %v", err)
 				ctx.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to record containers on loan",
+					"error":   "Failed to check containers",
 					"details": err.Error(),
 				})
 				return
 			}
 		} else {
-			var previousNumGallons int
-			if col.PreviousNumGallons != nil {
-				previousNumGallons = *col.PreviousNumGallons
-			}
-
-			newNumGallons := previousNumGallons - orderReq.GallonsToReturn + orderReq.GallonsToOrder
+			// Update the existing record
+			newNumGallons := previousGallons - orderReq.GallonsToReturn + orderReq.GallonsToOrder
 
 			updateContainersQuery := `
 				UPDATE containers_on_loan
