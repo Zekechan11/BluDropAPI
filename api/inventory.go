@@ -55,7 +55,7 @@ func InventoryRoutes(r *gin.Engine, db *sqlx.DB) {
 		var updateInventory struct {
 			Inventory_id	int    `json:"inventory_id"`
 			Item      		string `json:"item"`
-			No_of_items 	string    `json:"no_of_items"`
+			No_of_items 	int    `json:"no_of_items"`
 		}
 	
 		if err := ctx.ShouldBindJSON(&updateInventory); err != nil {
@@ -84,7 +84,7 @@ func InventoryRoutes(r *gin.Engine, db *sqlx.DB) {
 	r.DELETE("/api/delete_inventory/:id", func(ctx *gin.Context) {
 		id := ctx.Param("id")
 	
-		_, err := db.Exec("DELETE FROM Inventory WHERE inventory_id = ?", id)
+		_, err := db.Exec("DELETE FROM inventory WHERE inventory_id = ?", id)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete inventory: " + err.Error()})
 			return
