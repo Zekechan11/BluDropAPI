@@ -22,7 +22,7 @@ func ClientRoutes(r *gin.Engine, db *sqlx.DB) {
 			SELECT
 				c.*,
 				a.area,
-				COALESCE(l.total_containers_on_loan, 0) AS total_containers_on_loan,
+				COALESCE(MAX(l.total_containers_on_loan), 0) AS total_containers_on_loan,
 				COALESCE(SUM(o.total_price - o.payment), 0) AS total_payable
 			FROM account_clients c
 			LEFT JOIN areas a ON a.id = c.area_id
@@ -86,8 +86,8 @@ func ClientRoutes(r *gin.Engine, db *sqlx.DB) {
 		insertClient.Role = "Customer"
 
 		insertQuery := `
-    		INSERT INTO account_clients (firstname, lastname, email, username, password, area_id, role) 
-    		VALUES (:firstname, :lastname, :email, :username, :password, :area_id, :role)`
+    		INSERT INTO account_clients (firstname, lastname, email, username, password, area_id, role, type) 
+    		VALUES (:firstname, :lastname, :email, :username, :password, :area_id, :role, :type)`
 
 		result, err := db.NamedExec(insertQuery, insertClient)
 		if err != nil {
@@ -101,12 +101,14 @@ func ClientRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
+		util.CreateChatID(db, insertClient.ClientId, insertClient.AreaId, nil)
+
 		ctx.JSON(http.StatusOK, gin.H{"data": insertClient})
 	})
 
 	r.PUT("/v2/api/update_client/:client_id", func(ctx *gin.Context) {
-		
-		var updateClient dto.ClientModel
+
+		var updateClient dto.UpdateClient
 
 		if err := ctx.ShouldBindJSON(&updateClient); err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -117,15 +119,16 @@ func ClientRoutes(r *gin.Engine, db *sqlx.DB) {
 		updateClient.ClientId, _ = strconv.Atoi(client_id)
 
 		updateQuery := `
-			UPDATE account_clients 
-			SET
-				firstname = :firstname,
-				lastname = :lastname,
-				email = :email,
-				username = :username,
-				password = :password,
-				area_id = :area_id
-			WHERE client_id = :client_id`
+			UPDATE account_clients SET
+				firstname = COALESCE(:firstname, firstname),
+				lastname  = COALESCE(:lastname, lastname),
+				email     = COALESCE(:email, email),
+				username  = COALESCE(:username, username),
+				password  = COALESCE(:password, password),
+				area_id   = COALESCE(:area_id, area_id),
+				type   	  = COALESCE(:type, type)
+			WHERE client_id = :client_id
+			`
 
 		_, err := db.NamedExec(updateQuery, updateClient)
 		if err != nil {
