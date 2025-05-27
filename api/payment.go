@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
 
@@ -88,49 +89,43 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 		}
 
 		// Check if customer exists in containers_on_loan table using the COL structure
-		var col dto.COL
+		var previousGallons int
 		checkContainerQuery := `
-			SELECT total_containers_on_loan, COUNT(*)
+			SELECT total_containers_on_loan 
 			FROM containers_on_loan 
 			WHERE customer_id = ?
+			LIMIT 1
 		`
-		err = tx.Get(&col, checkContainerQuery, paymentReq.CustomerID)
-		if err != nil {
-			log.Printf("Error checking existing containers: %v", err)
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Failed to check containers",
-				"details": err.Error(),
-			})
-			return
-		}
+		err = tx.Get(&previousGallons, checkContainerQuery, paymentReq.CustomerID)
 
-		// If no existing record, insert a new record into containers_on_loan
-		if col.ExistingRecord == 0 {
-			// Insert a new record in containers_on_loan
-			insertContainerQuery := `
-				INSERT INTO containers_on_loan 
-				(customer_id, total_containers_on_loan, gallons_returned) 
-				VALUES (?, ?, 0)
-			`
-			_, err = tx.Exec(insertContainerQuery, paymentReq.CustomerID, clientOrder.NumGallons)
-			if err != nil {
-				log.Printf("Error inserting containers_on_loan: %v", err)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				// No existing record, insert new
+				insertContainerQuery := `
+					INSERT INTO containers_on_loan 
+					(customer_id, total_containers_on_loan, gallons_returned) 
+					VALUES (?, ?, 0)
+				`
+				_, err = tx.Exec(insertContainerQuery, paymentReq.CustomerID, clientOrder.NumGallons)
+				if err != nil {
+					log.Printf("Error inserting containers_on_loan: %v", err)
+					ctx.JSON(http.StatusInternalServerError, gin.H{
+						"error":   "Failed to record containers on loan",
+						"details": err.Error(),
+					})
+					return
+				}
+			} else {
+				log.Printf("Error checking containers on loan: %v", err)
 				ctx.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to record containers on loan",
+					"error":   "Failed to check containers",
 					"details": err.Error(),
 				})
 				return
 			}
 		} else {
-			// Update the existing record with returned gallons
-			var previousNumGallons int
-			if col.PreviousNumGallons != nil {
-				previousNumGallons = *col.PreviousNumGallons
-			} else {
-				previousNumGallons = 0
-			}
-
-			newNumGallons := previousNumGallons - paymentReq.GallonsReturned + clientOrder.NumGallons
+			// Update the existing record
+			newNumGallons := previousGallons - paymentReq.GallonsReturned + clientOrder.NumGallons
 
 			updateContainersQuery := `
 				UPDATE containers_on_loan
@@ -141,9 +136,9 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 			`
 			_, err = tx.Exec(updateContainersQuery, paymentReq.GallonsReturned, newNumGallons, paymentReq.CustomerID)
 			if err != nil {
-				log.Printf("Error updating gallons returned: %v", err)
+				log.Printf("Error updating containers on loan: %v", err)
 				ctx.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to update gallons returned",
+					"error":   "Failed to update containers on loan",
 					"details": err.Error(),
 				})
 				return
