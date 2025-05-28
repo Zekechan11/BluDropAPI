@@ -18,6 +18,6 @@ type StaffModel struct {
 	Password  string `json:"password" db:"password"`
 	Role      string `json:"role" db:"role"`
 	AreaId    int    `json:"area_id" db:"area_id"`
-	Area      string `json:"area" db:"area"`
+	Area      *string `json:"area" db:"area"`
 	Created   string `json:"created" db:"created"`
 }
