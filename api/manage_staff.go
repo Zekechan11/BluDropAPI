@@ -99,6 +99,18 @@ func StaffRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
+		if insertStaff.Role == "Agent" {
+			staffOnly := true
+			_, err := util.CreateChatID(db, insertStaff.StaffId, insertStaff.AreaId, &staffOnly)
+			if err != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{
+					"error":   "Failed to create or retrieve chat ID",
+					"details": err.Error(),
+				})
+				return
+			}
+		}
+
 		ctx.JSON(http.StatusOK, gin.H{"data": insertStaff})
 	})
 
