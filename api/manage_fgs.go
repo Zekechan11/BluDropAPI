@@ -22,7 +22,7 @@ func FGSRoutes(r *gin.Engine, db *sqlx.DB) {
 			FROM account_staffs s
 			LEFT JOIN areas a ON a.id = s.area_id
 			LEFT JOIN fgs f ON f.area_id = s.area_id
-			WHERE s.role = 'Agent'
+			WHERE s.role = 'Agent' AND s.area_id != 0
 		`
 		err := db.Select(&agent, query)
 		if err != nil {
@@ -34,12 +34,12 @@ func FGSRoutes(r *gin.Engine, db *sqlx.DB) {
 
 	r.POST("/api/fgs/add", func(ctx *gin.Context) {
 		var insertFGS dto.InsertFGS
-	
+
 		if err := ctx.ShouldBindJSON(&insertFGS); err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-	
+
 		if insertFGS.FGGId != 0 {
 			var currentCount int
 			err := db.Get(&currentCount, "SELECT count FROM fgs WHERE fgs_id = ?", insertFGS.FGGId)
@@ -47,7 +47,7 @@ func FGSRoutes(r *gin.Engine, db *sqlx.DB) {
 				ctx.JSON(http.StatusNotFound, gin.H{"error": "FGS ID not found"})
 				return
 			}
-	
+
 			newCount := currentCount + insertFGS.Count
 			updateQuery := `
 				UPDATE fgs 
@@ -62,10 +62,10 @@ func FGSRoutes(r *gin.Engine, db *sqlx.DB) {
 				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
-	
+
 			ctx.JSON(http.StatusOK, gin.H{
-				"message": "UPDATE OK",
-				"fgs_id": insertFGS.FGGId,
+				"message":   "UPDATE OK",
+				"fgs_id":    insertFGS.FGGId,
 				"new_count": newCount,
 			})
 		} else {
@@ -78,17 +78,46 @@ func FGSRoutes(r *gin.Engine, db *sqlx.DB) {
 				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
-	
+
 			lastInsertedID, err := result.RowsAffected()
 			if err != nil {
 				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Something went wrong"})
 				return
 			}
-	
+
 			ctx.JSON(http.StatusCreated, gin.H{
 				"message": "OK",
-				"fgs_id": lastInsertedID,
+				"fgs_id":  lastInsertedID,
 			})
 		}
-	})	
+	})
+
+	r.PUT("/api/fgs/update", func(ctx *gin.Context) {
+		var insertFGS dto.InsertFGS
+
+		if err := ctx.ShouldBindJSON(&insertFGS); err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		updateQuery := `
+				UPDATE fgs 
+				SET count = :count 
+				WHERE fgs_id = :fgs_id
+			`
+		_, err := db.NamedExec(updateQuery, map[string]interface{}{
+			"count":  insertFGS.Count,
+			"fgs_id": insertFGS.FGGId,
+		})
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		ctx.JSON(http.StatusOK, gin.H{
+			"message":   "UPDATE OK",
+			"fgs_id":    insertFGS.FGGId,
+			"new_count": insertFGS.Count,
+		})
+	})
 }
