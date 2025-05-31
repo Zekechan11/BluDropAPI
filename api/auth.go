@@ -190,4 +190,47 @@ func AuthRoutes(r *gin.Engine, db *sqlx.DB) {
 			},
 		})
 	})
+
+	r.POST("/api/auth/forgot-password", func(c *gin.Context) {
+		var account struct {
+			Email    string `json:"email" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&account); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "Invalid request",
+			})
+			return
+		}
+
+		query := `
+			SELECT staff_id AS uid, email
+			FROM account_staffs
+			LEFT JOIN areas ON id = area_id
+			WHERE email = ?
+			UNION ALL
+			SELECT client_id AS uid, email
+			FROM account_clients
+			LEFT JOIN areas ON id = area_id
+			WHERE email = ?`
+
+		var user struct {
+			UID   int    `db:"uid"`
+			Email string `db:"email"`
+		}
+		err := db.Get(&user, query, account.Email, account.Email)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"message": "Invalid request",
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message":   "Email found",
+		})
+	})
 }
