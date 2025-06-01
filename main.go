@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 	"waterfalls/api"
 
 	"github.com/gin-contrib/cors"
@@ -14,7 +15,6 @@ import (
 
 func main() {
 	dsn := os.Getenv("DATABASE_URL")
-	// dsn := "root@tcp(localhost:3306)/waterfalls"
 	db, err := sqlx.Open("mysql", dsn)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -28,9 +28,21 @@ func main() {
 
 	log.Println("Database connected successfully")
 
+	allowedOrigin := os.Getenv("ALLOWED_ORIGIN")
+	if allowedOrigin == "" {
+		allowedOrigin = "http://localhost:5173"
+	}
+
 	r := gin.Default()
 
-	r.Use(cors.Default())
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{allowedOrigin},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length", "Content-Type"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -58,6 +70,8 @@ func main() {
 	api.SalesReportRoutes(r, db)
 	api.ManualOrderRoutes(r, db)
 	api.RegisterRemittanceRoutes(r, db)
+	api.ManageProfileRoutes(r, db)
+	api.NotificationRoutes(r, db)
 
 	r.Run(":9090")
 }
