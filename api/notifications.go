@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +19,12 @@ type Notification struct {
 	Unpaid      float64 `db:"unpaid" json:"unpaid"`
 }
 
+var (
+	activeConnections int
+	mu                sync.Mutex
+	ticker            *time.Ticker
+)
+
 func NotificationRoutes(r *gin.Engine, db *sqlx.DB) {
 	r.GET("/sse/notifications/:customer_id", func(c *gin.Context) {
 		customerID := c.Param("customer_id")
@@ -27,8 +34,23 @@ func NotificationRoutes(r *gin.Engine, db *sqlx.DB) {
 		c.Writer.Header().Set("Connection", "keep-alive")
 		c.Writer.Flush()
 
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
+		mu.Lock()
+		activeConnections++
+		if activeConnections == 1 {
+			ticker = time.NewTicker(5 * time.Second)
+			log.Println("First active connection detected, starting the ticker.")
+		}
+		mu.Unlock()
+
+		defer func() {
+			mu.Lock()
+			activeConnections--
+			if activeConnections == 0 {
+				ticker.Stop()
+				log.Println("No active connections left, stopping the ticker.")
+			}
+			mu.Unlock()
+		}()
 
 		for {
 			select {
