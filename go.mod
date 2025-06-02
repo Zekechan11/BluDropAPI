@@ -1,4 +1,4 @@
-module waterfalls
+module bludrop-api
 
 go 1.23.3
 
