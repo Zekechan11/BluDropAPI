@@ -4,9 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
-
-	"waterfalls/dto" // Import the dto package
-
+	"bludrop-api/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )

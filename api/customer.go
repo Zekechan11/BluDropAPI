@@ -3,7 +3,7 @@ package api
 import (
 	"database/sql"
 	"net/http"
-	"waterfalls/dto"
+	"bludrop-api/dto"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"

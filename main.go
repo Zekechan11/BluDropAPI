@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"os"
 	"time"
-	"waterfalls/api"
+	"bludrop-api/api"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"waterfalls/dto"
-	"waterfalls/util"
+	"bludrop-api/dto"
+	"bludrop-api/util"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
