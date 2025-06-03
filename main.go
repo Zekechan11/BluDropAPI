@@ -1,11 +1,11 @@
 package main
 
 import (
+	"bludrop-api/api"
 	"log"
 	"net/http"
 	"os"
 	"time"
-	"bludrop-api/api"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
