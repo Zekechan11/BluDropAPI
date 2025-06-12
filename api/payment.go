@@ -1,10 +1,12 @@
 package api
 
 import (
+	"bludrop-api/dto"
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
-	"bludrop-api/dto"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )
@@ -14,6 +16,8 @@ type PaymentRequest struct {
 	CustomerID      int     `json:"customerId"`
 	AmountPaid      float64 `json:"amountPaid"`
 	GallonsReturned int     `json:"gallonsReturned"`
+	GallonsToOrder  int     `json:"gallonsToOrder"`
+	Type            string  `json:"type"`
 }
 
 func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
@@ -41,6 +45,31 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 		defer tx.Rollback() // Rollback in case of any error
+
+		// Calculate total price
+		var totalPrice float64
+		getPriceQuery := fmt.Sprintf(`
+			SELECT %s * ? 
+			FROM pricing
+			WHERE pricing_id = 1
+		`, paymentReq.Type)
+		err = tx.Get(&totalPrice, getPriceQuery, paymentReq.GallonsToOrder)
+		if err != nil {
+			log.Printf("Error calculating total price: %v", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Failed to calculate price",
+				"details": err.Error(),
+			})
+			return
+		}
+
+		// Prevent overpaying
+		overpay := 0.0
+		paymentToInsert := paymentReq.AmountPaid
+		if paymentReq.AmountPaid > totalPrice {
+			overpay = paymentReq.AmountPaid - totalPrice
+			paymentToInsert = totalPrice
+		}
 
 		// Fetch the client order using the dto.ClientOrder structure
 		var clientOrder dto.ClientOrder
@@ -76,7 +105,7 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 				payment = ?
 			WHERE id = ?
 		`
-		_, err = tx.Exec(updateOrderQuery, paymentReq.GallonsReturned, paymentReq.AmountPaid, paymentReq.OrderID)
+		_, err = tx.Exec(updateOrderQuery, paymentReq.GallonsReturned, paymentToInsert, paymentReq.OrderID)
 		if err != nil {
 			log.Printf("Error updating order status: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -160,6 +189,7 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 			"orderId":    paymentReq.OrderID,
 			"amountPaid": paymentReq.AmountPaid,
 			"totalPrice": clientOrder.TotalPrice,
+			"overpay":    overpay,
 			"status":     "Completed",
 		})
 	})
