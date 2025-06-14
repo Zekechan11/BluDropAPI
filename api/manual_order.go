@@ -62,6 +62,14 @@ func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
+		// Prevent overpaying
+		overpay := 0.0
+		paymentToInsert := orderReq.Payment
+		if orderReq.Payment > totalPrice {
+			overpay = orderReq.Payment - totalPrice
+			paymentToInsert = totalPrice
+		}
+
 		// Insert into customer_order
 		insertOrderQuery := `
 		INSERT INTO customer_order 
@@ -75,7 +83,7 @@ func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			orderReq.GallonsToOrder,
 			time.Now().Format("2006-01-02"),
 			totalPrice,
-			orderReq.Payment,
+			paymentToInsert,
 			orderReq.GallonsToReturn,
 			orderReq.CustomerID,
 		)
@@ -180,8 +188,9 @@ func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
 		ctx.JSON(http.StatusOK, gin.H{
 			"message":    "Manual order processed successfully",
 			"customerId": orderReq.CustomerID,
-			"payment":    orderReq.Payment,
+			"payment":    paymentToInsert,
 			"totalPrice": totalPrice,
+			"overpay":    overpay,
 			"status":     "Completed",
 		})
 	})
