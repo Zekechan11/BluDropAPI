@@ -226,6 +226,10 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			}
 		}
 
+		var col int
+		getCool := `SELECT total_containers_on_loan FROM containers_on_loan WHERE customer_id = ?`
+		err = tx.Get(&col, getCool, insertCustomerOrder.CustomerID)
+
 		// Commit the transaction
 		err = tx.Commit()
 		if err != nil {
@@ -244,6 +248,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			"order_id":    lastID,
 			"total_price": totalPrice,
 			"order":       insertCustomerOrder,
+			"col": col,
 		})
 	})
 }
