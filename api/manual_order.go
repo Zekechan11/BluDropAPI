@@ -62,12 +62,78 @@ func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		// Prevent overpaying
+		// prevent over pay
 		overpay := 0.0
 		paymentToInsert := orderReq.Payment
 		if orderReq.Payment > totalPrice {
 			overpay = orderReq.Payment - totalPrice
 			paymentToInsert = totalPrice
+		}
+		if overpay > 0 {
+			var pendingOrders []struct {
+				OrderID    int     `db:"id"`
+				TotalPrice float64 `db:"total_price"`
+				Payment    float64 `db:"payment"`
+			}
+
+			getPendingOrdersQuery := `
+				SELECT id, total_price, payment
+				FROM customer_order
+				WHERE customer_id = ? AND status = 'Pending'
+				ORDER BY date_created ASC
+			`
+			err = tx.Select(&pendingOrders, getPendingOrdersQuery, orderReq.CustomerID)
+			if err != nil {
+				log.Printf("Error fetching pending orders: %v", err)
+				ctx.JSON(http.StatusInternalServerError, gin.H{
+					"error":   "Failed to fetch pending orders",
+					"details": err.Error(),
+				})
+				return
+			}
+
+			for _, pending := range pendingOrders {
+				if overpay <= 0 {
+					break
+				}
+
+				remaining := pending.TotalPrice - pending.Payment
+				if remaining <= 0 {
+					continue
+				}
+
+				if overpay >= remaining {
+					_, err := tx.Exec(`
+						UPDATE customer_order
+						SET payment = total_price, status = 'Completed'
+						WHERE id = ?
+					`, pending.OrderID)
+					if err != nil {
+						log.Printf("Error updating pending order: %v", err)
+						ctx.JSON(http.StatusInternalServerError, gin.H{
+							"error":   "Failed to update pending order",
+							"details": err.Error(),
+						})
+						return
+					}
+					overpay -= remaining
+				} else {
+					_, err := tx.Exec(`
+						UPDATE customer_order
+						SET payment = payment + ?
+						WHERE id = ?
+					`, overpay, pending.OrderID)
+					if err != nil {
+						log.Printf("Error partially updating pending order: %v", err)
+						ctx.JSON(http.StatusInternalServerError, gin.H{
+							"error":   "Failed to apply partial overpay",
+							"details": err.Error(),
+						})
+						return
+					}
+					overpay = 0
+				}
+			}
 		}
 
 		// Insert into customer_order
