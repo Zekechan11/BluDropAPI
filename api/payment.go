@@ -2,6 +2,7 @@ package api
 
 import (
 	"bludrop-api/dto"
+	"bludrop-api/util"
 	"database/sql"
 	"fmt"
 	"log"
@@ -69,6 +70,18 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 		if paymentReq.AmountPaid > totalPrice {
 			overpay = paymentReq.AmountPaid - totalPrice
 			paymentToInsert = totalPrice
+		}
+
+		if overpay > 0 {
+			remainingOverpay, err := util.ApplyOverpay(tx, paymentReq.CustomerID, overpay)
+			if err != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{
+					"error":   "Failed to apply overpay to pending orders",
+					"details": err.Error(),
+				})
+				return
+			}
+			overpay = remainingOverpay
 		}
 
 		// Fetch the client order using the dto.ClientOrder structure
