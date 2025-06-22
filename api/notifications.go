@@ -61,25 +61,20 @@ func NotificationRoutes(r *gin.Engine, db *sqlx.DB) {
 				var notifications []Notification
 				query := `
 					SELECT
-					  co.date_created,
-					  co.total_price,
-					  co.payment,
-					  co.status,
-					  SUM(co.total_price - co.payment) - (
-						SELECT COALESCE(SUM(payment - total_price), 0)
-						FROM customer_order 
-						WHERE customer_id = ?
-						  AND status = 'Completed' 
-						  AND date_created <= co.date_created
-					  ) AS unpaid
-					FROM customer_order co
-					WHERE co.customer_id = ?
-					  AND co.date_created <= DATE_ADD(CURDATE(), INTERVAL 1 MONTH) 
-					GROUP BY co.date_created, co.total_price, co.status, co.payment
-					ORDER BY co.date_created
+						date_created,
+						total_price,
+						payment,
+						status,
+						SUM(total_price - payment) AS unpaid
+					FROM customer_order
+					WHERE customer_id = ?
+						AND status = 'Pending'
+						AND date_created <= DATE_ADD(CURDATE(), INTERVAL 1 MONTH)
+					GROUP BY date_created, total_price, status, payment
+					ORDER BY date_created DESC
 				`
 
-				err := db.Select(&notifications, query, customerID, customerID)
+				err := db.Select(&notifications, query, customerID)
 				if err != nil {
 					log.Printf("DB error: %v", err)
 					continue
