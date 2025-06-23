@@ -31,21 +31,12 @@ func CustomerRoutes(r *gin.Engine, db *sqlx.DB) {
 		}
 
 		queryLoan := `
-			WITH overpayments AS (
-			SELECT 
-				customer_id,
-				SUM(payment - total_price) AS overpayment
-			FROM customer_order
-			WHERE customer_id = ?
-			GROUP BY customer_id
-			)
-			SELECT
-			SUM(total_price - payment) - COALESCE((SELECT overpayment FROM overpayments WHERE customer_id = ?), 0) AS total_unpaid
+			SELECT SUM(total_price - payment) 
 			FROM customer_order
 			WHERE customer_id = ?
 		`
 		var totalLoan float64
-		err = db.Get(&totalLoan, queryLoan, clientID, clientID, clientID)
+		err = db.Get(&totalLoan, queryLoan, clientID)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				totalLoan = 0
@@ -65,13 +56,19 @@ func CustomerRoutes(r *gin.Engine, db *sqlx.DB) {
 		client_id := ctx.Param("client_id")
 		query := `
 		SELECT
-			id,
-			num_gallons_order,
-			returned_gallons,
-			date,
-			payment
-		FROM customer_order
-		WHERE customer_id = ?
+			cu.id,
+			cu.num_gallons_order,
+			cu.returned_gallons,
+			cu.date,
+      		cu.total_price,
+			cu.payment,
+			cu.status,
+      		cu.date_created,
+      		col.total_containers_on_loan
+		FROM customer_order cu
+		LEFT JOIN containers_on_loan col ON cu.customer_id = col.customer_id
+		WHERE cu.customer_id = ?
+		ORDER BY cu.date_created DESC
 	`
 		var agents []dto.CustomerTransaction
 		err := db.Select(&agents, query, client_id)
