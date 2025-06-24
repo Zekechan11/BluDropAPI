@@ -151,15 +151,19 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 				m.sender_name AS last_sender,
 				m.content,
 				m.timestamp,
-				ar.area AS area_name,
+				COALESCE(ar.area, '') AS area_name,
 				CONCAT(a.firstname, ' ', a.lastname) AS fullname,
-				a.role,
-				a.type AS customer_type
+				COALESCE(a.role, '') AS role,
+				COALESCE(a.type, '') AS customer_type
 			FROM conversations c
 			LEFT JOIN account_clients a ON c.user_id = a.client_id
 			LEFT JOIN areas ar ON a.area_id = ar.id
 			LEFT JOIN latest_messages m ON c.conversation_id = m.conversation_id
-			WHERE c.staff_only = false AND c.area_id = ?
+			WHERE
+				c.staff_only = false
+				AND c.area_id = ?
+				AND a.firstname IS NOT NULL
+				AND a.lastname IS NOT NULL
 
 			UNION ALL
 
@@ -175,7 +179,7 @@ func ChatRoutes(r *gin.Engine, db *sqlx.DB) {
 				ai.role,
 				NULL AS customer_type
 			FROM conversations c
-			JOIN admin_info ai
+			LEFT JOIN admin_info ai ON true
 			LEFT JOIN latest_messages m ON c.conversation_id = m.conversation_id
 			WHERE c.staff_only = true AND c.user_id = ?
 
