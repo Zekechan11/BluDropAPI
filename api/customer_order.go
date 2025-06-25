@@ -39,8 +39,8 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			SELECT 
 				co.Id, 
 				co.customer_id, 
-				CONCAT(a.firstname, ' ', a.lastname) AS fullname,
-				a.area_id,
+				CONCAT(COALESCE(a.firstname, 'Deleted'), ' ', COALESCE(a.lastname, 'Customer')) AS fullname,
+				COALESCE(a.area_id, 0) AS area_id,
 				co.num_gallons_order,
 				co.returned_gallons,
 				(co.num_gallons_order - co.returned_gallons) AS col,
@@ -51,7 +51,7 @@ func Customer_OrderRoutes(r *gin.Engine, db *sqlx.DB) {
 				co.payment,
 				SUM(co.total_price - co.payment) OVER () AS payable_amount,
 				co.status,
-				CONCAT(s.firstname, ' ', s.lastname) AS agent,
+				CONCAT(COALESCE(s.firstname, 'Deleted'), ' ', COALESCE(s.lastname, 'Agent')) AS agent,
 				ar.area
 			FROM 
 				customer_order co
