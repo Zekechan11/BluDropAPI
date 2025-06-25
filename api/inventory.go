@@ -55,7 +55,7 @@ func InventoryRoutes(r *gin.Engine, db *sqlx.DB) {
 		var updateInventory struct {
 			Inventory_id	int    `json:"inventory_id"`
 			Item      		string `json:"item"`
-			No_of_items 	int    `json:"no_of_items"`
+			No_of_items 	string `json:"no_of_items"`
 		}
 	
 		if err := ctx.ShouldBindJSON(&updateInventory); err != nil {
