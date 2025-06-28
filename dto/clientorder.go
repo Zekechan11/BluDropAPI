@@ -1,6 +1,7 @@
 package dto
 
 type ClientOrder struct {
+	OrderID    int     `db:"id"`
 	TotalPrice float64 `db:"total_price"`
 	NumGallons int     `db:"num_gallons_order"`
 	AreaID     int     `db:"area_id"`

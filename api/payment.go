@@ -3,7 +3,6 @@ package api
 import (
 	"bludrop-api/dto"
 	"bludrop-api/util"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -46,46 +45,9 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 		}
 		defer tx.Rollback() // Rollback in case of any error
 
-		// Calculate total price
-		var totalPrice float64
-		getPriceQuery := fmt.Sprintf(`
-			SELECT %s * ? 
-			FROM pricing
-			WHERE pricing_id = 1
-		`, paymentReq.Type)
-		err = tx.Get(&totalPrice, getPriceQuery, paymentReq.GallonsToOrder)
-		if err != nil {
-			log.Printf("Error calculating total price: %v", err)
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Failed to calculate price",
-				"details": err.Error(),
-			})
-			return
-		}
-
-		// Prevent overpaying
-		overpay := 0.0
-		paymentToInsert := paymentReq.AmountPaid
-		if paymentReq.AmountPaid > totalPrice {
-			overpay = paymentReq.AmountPaid - totalPrice
-			paymentToInsert = totalPrice
-		}
-
-		if overpay > 0 {
-			remainingOverpay, err := util.ApplyOverpay(tx, paymentReq.CustomerID, overpay)
-			if err != nil {
-				ctx.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to apply overpay to pending orders",
-					"details": err.Error(),
-				})
-				return
-			}
-			overpay = remainingOverpay
-		}
-
 		// Fetch the client order using the dto.ClientOrder structure
 		var clientOrder dto.ClientOrder
-		getOrderQuery := `SELECT total_price, num_gallons_order, area_id FROM customer_order WHERE Id = ?`
+		getOrderQuery := `SELECT id, total_price, num_gallons_order, area_id FROM customer_order WHERE Id = ?`
 		err = tx.Get(&clientOrder, getOrderQuery, paymentReq.OrderID)
 		if err != nil {
 			log.Printf("Error fetching order: %v", err)
@@ -94,6 +56,26 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 				"details": err.Error(),
 			})
 			return
+		}
+
+		// Prevent overpaying
+		overpay := 0.0
+		paymentToInsert := paymentReq.AmountPaid
+		if paymentReq.AmountPaid > clientOrder.TotalPrice{
+			overpay = paymentReq.AmountPaid - clientOrder.TotalPrice
+			paymentToInsert = clientOrder.TotalPrice
+		}
+
+		if overpay > 0 {
+			remainingOverpay, err := util.ApplyOverpay(tx, paymentReq.CustomerID, overpay, &clientOrder.OrderID)
+			if err != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{
+					"error":   "Failed to apply overpay to pending orders",
+					"details": err.Error(),
+				})
+				return
+			}
+			overpay = remainingOverpay
 		}
 
 		// Update FGS Count using the area_id from the client order
