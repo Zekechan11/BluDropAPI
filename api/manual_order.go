@@ -71,7 +71,7 @@ func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
 		}
 
 		if overpay > 0 {
-			remainingOverpay, err := util.ApplyOverpay(tx, orderReq.CustomerID, overpay)
+			remainingOverpay, err := util.ApplyOverpay(tx, orderReq.CustomerID, overpay, nil)
 			if err != nil {
 				ctx.JSON(http.StatusInternalServerError, gin.H{
 					"error":   "Failed to apply overpay to pending orders",
