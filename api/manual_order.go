@@ -2,7 +2,6 @@ package api
 
 import (
 	"bludrop-api/util"
-	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,7 +16,7 @@ type ManualOrderRequest struct {
 	GallonsToOrder  int     `json:"gallonsToOrder"`
 	Payment         float64 `json:"payment"`
 	GallonsToReturn int     `json:"gallonsToReturn"`
-	Type            string `json:"type"`
+	Type            string  `json:"type"`
 }
 
 func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
@@ -70,7 +69,7 @@ func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			overpay = orderReq.Payment - totalPrice
 			paymentToInsert = totalPrice
 		}
-		
+
 		if overpay > 0 {
 			remainingOverpay, err := util.ApplyOverpay(tx, orderReq.CustomerID, overpay)
 			if err != nil {
@@ -129,61 +128,13 @@ func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		// Handle containers_on_loan similarly to previous implementation
-		var previousGallons int
-		checkContainerQuery := `
-			SELECT total_containers_on_loan 
-			FROM containers_on_loan 
-			WHERE customer_id = ?
-			LIMIT 1
-		`
-		err = tx.Get(&previousGallons, checkContainerQuery, orderReq.CustomerID)
-
+		err = util.UpdateOrInsertContainersOnLoan(tx, orderReq.CustomerID, orderReq.GallonsToOrder, orderReq.GallonsToReturn)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				// No existing record, insert new
-				insertContainerQuery := `
-					INSERT INTO containers_on_loan 
-					(customer_id, total_containers_on_loan, gallons_returned) 
-					VALUES (?, ?, 0)
-				`
-				_, err = tx.Exec(insertContainerQuery, orderReq.CustomerID, orderReq.GallonsToOrder)
-				if err != nil {
-					log.Printf("Error inserting containers_on_loan: %v", err)
-					ctx.JSON(http.StatusInternalServerError, gin.H{
-						"error":   "Failed to record containers on loan",
-						"details": err.Error(),
-					})
-					return
-				}
-			} else {
-				log.Printf("Error checking containers on loan: %v", err)
-				ctx.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to check containers",
-					"details": err.Error(),
-				})
-				return
-			}
-		} else {
-			// Update the existing record
-			newNumGallons := previousGallons - orderReq.GallonsToReturn + orderReq.GallonsToOrder
-
-			updateContainersQuery := `
-				UPDATE containers_on_loan
-				SET
-					gallons_returned = ?,
-					total_containers_on_loan = ?
-				WHERE customer_id = ?
-			`
-			_, err = tx.Exec(updateContainersQuery, orderReq.GallonsToReturn, newNumGallons, orderReq.CustomerID)
-			if err != nil {
-				log.Printf("Error updating containers on loan: %v", err)
-				ctx.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to update containers on loan",
-					"details": err.Error(),
-				})
-				return
-			}
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Failed to update containers on loan",
+				"details": err.Error(),
+			})
+			return
 		}
 
 		// Commit the transaction

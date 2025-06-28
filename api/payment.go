@@ -3,7 +3,6 @@ package api
 import (
 	"bludrop-api/dto"
 	"bludrop-api/util"
-	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -128,61 +127,13 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
-		// Check if customer exists in containers_on_loan table using the COL structure
-		var previousGallons int
-		checkContainerQuery := `
-			SELECT total_containers_on_loan 
-			FROM containers_on_loan 
-			WHERE customer_id = ?
-			LIMIT 1
-		`
-		err = tx.Get(&previousGallons, checkContainerQuery, paymentReq.CustomerID)
-
+		err = util.UpdateOrInsertContainersOnLoan(tx, paymentReq.CustomerID, clientOrder.NumGallons, paymentReq.GallonsReturned)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				// No existing record, insert new
-				insertContainerQuery := `
-					INSERT INTO containers_on_loan 
-					(customer_id, total_containers_on_loan, gallons_returned) 
-					VALUES (?, ?, 0)
-				`
-				_, err = tx.Exec(insertContainerQuery, paymentReq.CustomerID, clientOrder.NumGallons)
-				if err != nil {
-					log.Printf("Error inserting containers_on_loan: %v", err)
-					ctx.JSON(http.StatusInternalServerError, gin.H{
-						"error":   "Failed to record containers on loan",
-						"details": err.Error(),
-					})
-					return
-				}
-			} else {
-				log.Printf("Error checking containers on loan: %v", err)
-				ctx.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to check containers",
-					"details": err.Error(),
-				})
-				return
-			}
-		} else {
-			// Update the existing record
-			newNumGallons := previousGallons - paymentReq.GallonsReturned + clientOrder.NumGallons
-
-			updateContainersQuery := `
-				UPDATE containers_on_loan
-				SET
-					gallons_returned = ?,
-					total_containers_on_loan = ?
-				WHERE customer_id = ?
-			`
-			_, err = tx.Exec(updateContainersQuery, paymentReq.GallonsReturned, newNumGallons, paymentReq.CustomerID)
-			if err != nil {
-				log.Printf("Error updating containers on loan: %v", err)
-				ctx.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to update containers on loan",
-					"details": err.Error(),
-				})
-				return
-			}
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Failed to update containers on loan",
+				"details": err.Error(),
+			})
+			return
 		}
 
 		// Commit the transaction
