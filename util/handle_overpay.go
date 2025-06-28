@@ -12,7 +12,7 @@ type PendingOrder struct {
 	Payment    float64 `db:"payment"`
 }
 
-func ApplyOverpay(tx *sqlx.Tx, customerID int, overpay float64) (float64, error) {
+func ApplyOverpay(tx *sqlx.Tx, customerID int, overpay float64, currentOrderID *int) (float64, error) {
 	if overpay <= 0 {
 		return 0, nil
 	}
@@ -21,11 +21,13 @@ func ApplyOverpay(tx *sqlx.Tx, customerID int, overpay float64) (float64, error)
 	getPendingOrdersQuery := `
 		SELECT id, total_price, payment
 		FROM customer_order
-		WHERE customer_id = ? AND status = 'Pending'
+		WHERE customer_id = ?
+			AND status = 'Pending'
+			AND (? IS NULL OR id != ?)
 		ORDER BY date_created ASC
 	`
 
-	err := tx.Select(&pendingOrders, getPendingOrdersQuery, customerID)
+	err := tx.Select(&pendingOrders, getPendingOrdersQuery, customerID, currentOrderID, currentOrderID)
 	if err != nil {
 		log.Printf("Error fetching pending orders: %v", err)
 		return overpay, err
