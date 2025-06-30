@@ -34,4 +34,7 @@ gin-bin
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+# Misc
 db/
+.env
+.air.toml
