@@ -17,6 +17,7 @@ type PaymentRequest struct {
 	GallonsReturned int     `json:"gallonsReturned"`
 	GallonsToOrder  int     `json:"gallonsToOrder"`
 	Type            string  `json:"type"`
+	PayPayable      bool    `json:"payPayable"`
 }
 
 func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
@@ -61,21 +62,26 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 		// Prevent overpaying
 		overpay := 0.0
 		paymentToInsert := paymentReq.AmountPaid
-		if paymentReq.AmountPaid > clientOrder.TotalPrice{
+		if paymentReq.AmountPaid > clientOrder.TotalPrice {
 			overpay = paymentReq.AmountPaid - clientOrder.TotalPrice
 			paymentToInsert = clientOrder.TotalPrice
 		}
 
+		var overpaidAmount float64 = 0.0
 		if overpay > 0 {
-			remainingOverpay, err := util.ApplyOverpay(tx, paymentReq.CustomerID, overpay, &clientOrder.OrderID)
-			if err != nil {
-				ctx.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to apply overpay to pending orders",
-					"details": err.Error(),
-				})
-				return
+			if paymentReq.PayPayable {
+				originalOverpay := overpay
+				remainingOverpay, err := util.ApplyOverpay(tx, paymentReq.CustomerID, overpay, &clientOrder.OrderID)
+				if err != nil {
+					ctx.JSON(http.StatusInternalServerError, gin.H{
+						"error":   "Failed to apply overpay to pending orders",
+						"details": err.Error(),
+					})
+					return
+				}
+				overpaidAmount = originalOverpay - remainingOverpay
+				overpay = remainingOverpay
 			}
-			overpay = remainingOverpay
 		}
 
 		// Update FGS Count using the area_id from the client order
@@ -90,16 +96,24 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 			return
 		}
 
+		// Determine order status based on payment
+		var orderStatus string
+		if paymentReq.AmountPaid < clientOrder.TotalPrice {
+			orderStatus = "Underpaid"
+		} else {
+			orderStatus = "Completed"
+		}
+
 		// Update order status and payment details using the PaymentRequest
 		updateOrderQuery := `
 			UPDATE customer_order 
 			SET
-				status = 'Completed',
+				status = ?,
 				returned_gallons = ?,
 				payment = ?
 			WHERE id = ?
 		`
-		_, err = tx.Exec(updateOrderQuery, paymentReq.GallonsReturned, paymentToInsert, paymentReq.OrderID)
+		_, err = tx.Exec(updateOrderQuery, orderStatus, paymentReq.GallonsReturned, paymentToInsert, paymentReq.OrderID)
 		if err != nil {
 			log.Printf("Error updating order status: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -131,12 +145,14 @@ func PaymentRoutes(r *gin.Engine, db *sqlx.DB) {
 
 		// Successful response
 		ctx.JSON(http.StatusOK, gin.H{
-			"message":    "Payment processed successfully",
-			"orderId":    paymentReq.OrderID,
-			"amountPaid": paymentReq.AmountPaid,
-			"totalPrice": clientOrder.TotalPrice,
-			"overpay":    overpay,
-			"status":     "Completed",
+			"message":        "Payment processed successfully",
+			"orderId":        paymentReq.OrderID,
+			"amountPaid":     paymentReq.AmountPaid,
+			"totalPrice":     clientOrder.TotalPrice,
+			"overpay":        overpay,
+			"payPayable":     paymentReq.PayPayable,
+			"overpaidAmount": overpaidAmount,
+			"status":         "Completed",
 		})
 	})
 }

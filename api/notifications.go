@@ -68,7 +68,7 @@ func NotificationRoutes(r *gin.Engine, db *sqlx.DB) {
 						SUM(total_price - payment) AS unpaid
 					FROM customer_order
 					WHERE customer_id = ?
-						AND status = 'Pending'
+						AND (status = 'Pending' OR status = 'Underpaid')
 						AND date_created <= DATE_ADD(CURDATE(), INTERVAL 1 MONTH)
 					GROUP BY date_created, total_price, status, payment
 					ORDER BY date_created DESC

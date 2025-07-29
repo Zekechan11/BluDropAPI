@@ -17,6 +17,7 @@ type ManualOrderRequest struct {
 	Payment         float64 `json:"payment"`
 	GallonsToReturn int     `json:"gallonsToReturn"`
 	Type            string  `json:"type"`
+	PayPayable      bool    `json:"payPayable"`
 }
 
 func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
@@ -70,23 +71,36 @@ func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			paymentToInsert = totalPrice
 		}
 
+		var overpaidAmount float64 = 0.0
 		if overpay > 0 {
-			remainingOverpay, err := util.ApplyOverpay(tx, orderReq.CustomerID, overpay, nil)
-			if err != nil {
-				ctx.JSON(http.StatusInternalServerError, gin.H{
-					"error":   "Failed to apply overpay to pending orders",
-					"details": err.Error(),
-				})
-				return
+			if orderReq.PayPayable {
+				originalOverpay := overpay
+				remainingOverpay, err := util.ApplyOverpay(tx, orderReq.CustomerID, overpay, nil)
+				if err != nil {
+					ctx.JSON(http.StatusInternalServerError, gin.H{
+						"error":   "Failed to apply overpay to pending orders",
+						"details": err.Error(),
+					})
+					return
+				}
+				overpaidAmount = originalOverpay - remainingOverpay
+				overpay = remainingOverpay
 			}
-			overpay = remainingOverpay
+		}
+
+		// Determine order status based on payment
+		var orderStatus string
+		if orderReq.Payment < totalPrice {
+			orderStatus = "Underpaid"
+		} else {
+			orderStatus = "Completed"
 		}
 
 		// Insert into customer_order
 		insertOrderQuery := `
 		INSERT INTO customer_order 
 		(customer_id, num_gallons_order, date, date_created, total_price, payment, returned_gallons, status, area_id) 
-		VALUES (?, ?, ?, NOW(), ?, ?, ?, 'Completed', 
+		VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, 
 			(SELECT area_id FROM account_clients WHERE client_id = ?))
 		`
 		_, err = tx.Exec(
@@ -97,6 +111,7 @@ func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
 			totalPrice,
 			paymentToInsert,
 			orderReq.GallonsToReturn,
+			orderStatus,
 			orderReq.CustomerID,
 		)
 		if err != nil {
@@ -150,12 +165,14 @@ func ManualOrderRoutes(r *gin.Engine, db *sqlx.DB) {
 
 		// Successful response
 		ctx.JSON(http.StatusOK, gin.H{
-			"message":    "Manual order processed successfully",
-			"customerId": orderReq.CustomerID,
-			"payment":    paymentToInsert,
-			"totalPrice": totalPrice,
-			"overpay":    overpay,
-			"status":     "Completed",
+			"message":        "Manual order processed successfully",
+			"customerId":     orderReq.CustomerID,
+			"payment":        paymentToInsert,
+			"totalPrice":     totalPrice,
+			"overpay":        overpay,
+			"payPayable":     orderReq.PayPayable,
+			"overpaidAmount": overpaidAmount,
+			"status":         "Completed",
 		})
 	})
 }

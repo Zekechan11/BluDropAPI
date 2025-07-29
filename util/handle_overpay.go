@@ -22,7 +22,7 @@ func ApplyOverpay(tx *sqlx.Tx, customerID int, overpay float64, currentOrderID *
 		SELECT id, total_price, payment
 		FROM customer_order
 		WHERE customer_id = ?
-			AND status = 'Pending'
+			AND (status = 'Pending' OR status = 'Underpaid')
 			AND (? IS NULL OR id != ?)
 		ORDER BY date_created ASC
 	`
